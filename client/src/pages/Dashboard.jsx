@@ -1,19 +1,56 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client.js';
 import { usePolling } from '../hooks/usePolling.js';
-import { useLang } from '../i18n/index.js';
+import { useLang, kindLabel, statusLabel } from '../i18n/index.js';
 import AlertsFeed from '../components/AlertsFeed.jsx';
+import LiveStatus from '../components/LiveStatus.jsx';
 
-/* Role-scoped landing: agents you can see + open alerts routed near you. */
+/* Role-scoped landing: agents you can see + open alerts routed near you,
+   filterable by provider / type / status (server-side query params). */
 const taka = (n) => `৳${Number(n || 0).toLocaleString('en-IN')}`;
+const PROVIDERS = ['bKash', 'Nagad', 'Rocket'];
+const KINDS = ['liquidity', 'anomaly', 'data_quality'];
+const OPEN_STATUSES = 'new,acknowledged,in_progress,escalated';
 
 export default function Dashboard() {
   const { t } = useLang();
+  const [provider, setProvider] = useState('');
+  const [kind, setKind] = useState('');
+  const [status, setStatus] = useState('');
+
+  const qs = new URLSearchParams();
+  qs.set('status', status || OPEN_STATUSES);
+  if (provider) qs.set('provider', provider);
+  if (kind) qs.set('kind', kind);
+
   const { data: agentsData, refresh: refreshAgents } = usePolling(() => api.agents(), 5000, []);
-  const { data: alertsData, refresh: refreshAlerts } = usePolling(() => api.alerts('?status=new,acknowledged,in_progress,escalated'), 3000, []);
+  const { data: alertsData, error: alertsError, lastUpdated, refresh: refreshAlerts } =
+    usePolling(() => api.alerts(`?${qs.toString()}`), 3000, [provider, kind, status]);
 
   return (
     <div className="page">
+      <div className="simbar card" style={{ justifyContent: 'flex-start' }}>
+        <span style={{ color: 'var(--dim)', fontSize: 13 }}>{t.filterProvider}:</span>
+        <select value={provider} onChange={(e) => setProvider(e.target.value)}>
+          <option value="">{t.all}</option>
+          {PROVIDERS.map((p) => <option key={p} value={p}>{p}</option>)}
+        </select>
+        <span style={{ color: 'var(--dim)', fontSize: 13 }}>{t.filterKind}:</span>
+        <select value={kind} onChange={(e) => setKind(e.target.value)}>
+          <option value="">{t.all}</option>
+          {KINDS.map((k) => <option key={k} value={k}>{kindLabel(t, k)}</option>)}
+        </select>
+        <span style={{ color: 'var(--dim)', fontSize: 13 }}>{t.filterStatus}:</span>
+        <select value={status} onChange={(e) => setStatus(e.target.value)}>
+          <option value="">{t.all} (open)</option>
+          {['new', 'acknowledged', 'in_progress', 'escalated', 'resolved', 'dismissed'].map((s) => (
+            <option key={s} value={s}>{statusLabel(t, s)}</option>
+          ))}
+        </select>
+        <span style={{ marginLeft: 'auto' }}><LiveStatus lastUpdated={lastUpdated} error={alertsError} /></span>
+      </div>
+
       <div className="grid cols-2">
         <div className="card">
           <h2>{t.agents}</h2>

@@ -1,0 +1,40 @@
+graph TD
+  subgraph VIEW["1 - VIEW (React + Vite)"]
+    PAGES["Pages: Login / Dashboard / AgentDetail / CaseView"]
+    COMP["Components: BalanceHero, ForecastPanel, AlertsFeed, CaseTimeline, ConfidenceMeter"]
+    I18N["i18n: EN / Bangla / Banglish"]
+    API["api/client.js - only fetch path, 3s read-only polling"]
+    PAGES --> COMP
+    COMP --> I18N
+    PAGES --> API
+  end
+
+  API -->|"REST /api + JWT bearer"| ROUTES
+
+  subgraph CTRL["2 - CONTROLLER (Express)"]
+    ROUTES["routes/ (wiring only)"]
+    AUTHMW["middleware/auth: JWT verify + role"]
+    CTRLS["controllers: auth, agent, alert, sim"]
+    ROUTES --> AUTHMW
+    AUTHMW --> CTRLS
+  end
+
+  CTRLS --> SIM
+
+  subgraph SVC["3 - SERVICES (compute-on-write)"]
+    SIM["simEngine - 2s tick: scenario txns -> applyTxns (single atomic balance writer)"]
+    ENGINES["recompute: forecast + anomaly + dataQuality"]
+    EXPLAIN["explain: OpenAI, 4s timeout, strict JSON"]
+    GUARD["languageGuard: banned-word check on every message"]
+    TPL["trilingual template fallback (no API key needed)"]
+    SIM --> ENGINES
+    ENGINES -->|"upsert alerts"| EXPLAIN
+    EXPLAIN --> GUARD
+    GUARD -->|"reject / no key"| TPL
+  end
+
+  TPL -->|"persist alerts + balances"| MODELS
+
+  subgraph MODEL["4 - MODELS (MongoDB / Mongoose)"]
+    MODELS["users / agents (shared cash + bKash-Nagad-Rocket e-money) / transactions / alerts (evidence + audit history)"]
+  end

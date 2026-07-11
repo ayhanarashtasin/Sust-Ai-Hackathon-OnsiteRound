@@ -51,6 +51,34 @@ test('insufficient history => safe fallback: no flag', () => {
   assert.equal(f, null);
 });
 
+test('tolerance clustering catches jittered near-identical amounts (9,800/9,900/10,000 style)', () => {
+  const now = new Date();
+  const txns = [];
+  const amounts = [9800, 9900, 10000, 9850, 9800, 9950]; // within ~1.5% of each other, not one exact value
+  for (let i = 0; i < amounts.length; i++) {
+    txns.push(txn({ amount: amounts[i], customerHash: `CUST-${i % 3}`, timestamp: new Date(now - i * 60_000) }));
+  }
+  const f = detectRepeatedAmounts({ provider: 'bKash', recentTxns: txns, now });
+  assert.ok(f, 'jittered amounts from few accounts should still flag');
+  assert.equal(f.evidence.repeatCount, 6);
+  assert.equal(f.evidence.distinctAccounts, 3);
+  assert.ok(f.evidence.amountMax - f.evidence.amountMin <= 200);
+});
+
+test('a diverse high-volume burst classifies as demand_surge (info, no review) — not velocity_spike', () => {
+  const now = new Date();
+  const baseline = [];
+  for (let m = 180; m > 10; m -= 2.5) baseline.push(txn({ timestamp: new Date(now - m * 60_000), amount: 500 + (m % 60) * 100 }));
+  const burst = [];
+  for (let i = 0; i < 18; i++) burst.push(txn({ amount: 700 + i * 331, customerHash: `CUST-${2000 + i}`, timestamp: new Date(now - i * 12_000) }));
+  const f = detectVelocitySpike({ provider: 'Rocket', recentTxns: burst, baselineTxns: baseline, now });
+  assert.ok(f, 'a big burst should still surface — as context');
+  assert.equal(f.subtype, 'demand_surge');
+  assert.equal(f.severity, 'info');
+  assert.equal(f.requiresReview, false);
+  assert.equal(f.evidence.classification, 'diverse_demand');
+});
+
 test('anomaly findings always carry review framing, never a determination', () => {
   const now = new Date();
   const txns = [];

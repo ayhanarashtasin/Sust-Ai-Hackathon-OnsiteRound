@@ -36,10 +36,14 @@ export default function AlertExplanation({ alert, id }) {
       break;
     }
     case 'velocity_spike':
-      summary = t.reasonVelocity;
+    case 'demand_surge':
+      summary = alert.subtype === 'demand_surge' ? t.reasonDemand : t.reasonVelocity;
       add(t.observedCashouts, `${number(evidence.bucketCount)} / ${number(evidence.bucketMinutes)} ${t.minutes}`);
       add(t.typicalCashouts, number(evidence.baselineMean));
       add(t.zScore, number(evidence.zScore));
+      add(t.distinctAccounts, number(evidence.distinctAccounts));
+      if (evidence.top3AccountShare != null) add(t.top3Share, percent(evidence.top3AccountShare));
+      if (evidence.amountVariation != null) add(t.amountVariation, percent(evidence.amountVariation));
       add(t.triggerThreshold, `${t.zScore} > ${number(evidence.thresholdZScore ?? 3)}, ${t.observedCashouts} ≥ ${number(evidence.minimumBucketCount ?? 6)}`);
       break;
     case 'repeated_amount':
@@ -55,6 +59,11 @@ export default function AlertExplanation({ alert, id }) {
       add(t.lastFeedUpdate, dateTime(evidence.lastFeedAt));
       add(t.feedAge, `${number(evidence.ageMinutes)} ${t.minutes}`);
       add(t.triggerThreshold, `${number(evidence.ageMinutes)} > ${number(evidence.thresholdMinutes)} ${t.minutes}`);
+      break;
+    case 'missing_feed':
+      summary = t.reasonMissing;
+      add(t.provider, evidence.provider || alert.provider || t.notAvailable);
+      add(t.lastFeedUpdate, t.notAvailable);
       break;
     case 'balance_mismatch':
       summary = t.reasonMismatch;
@@ -87,7 +96,7 @@ export default function AlertExplanation({ alert, id }) {
           <ul>{alert.possibleNormalReasons.map((reason) => <li key={reason}>{normalReasonLabels[reason] || reason}</li>)}</ul>
         </div>
       )}
-      <div className="review-note">{t.requiresReview}</div>
+      <div className="review-note">{alert.requiresReview === false ? t.infoOnly : t.requiresReview}</div>
     </section>
   );
 }

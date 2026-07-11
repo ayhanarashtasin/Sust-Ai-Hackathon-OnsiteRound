@@ -4,7 +4,7 @@ import Alert from '../models/Alert.js';
 import { signedDelta } from './signedDelta.js';
 import { forecastAgent } from './forecast.js';
 import { detectAnomalies } from './anomaly.js';
-import { checkStaleFeeds, checkBalanceMismatch, staleProviderSet } from './dataQuality.js';
+import { providerDataIssues, STALE_MIN } from './dataQuality.js';
 import { generateExplanation } from './explain.js';
 import { rebuildSeededState } from './demoReset.js';
 
@@ -13,24 +13,29 @@ import { rebuildSeededState } from './demoReset.js';
 
     every tick (2s):
       1. generate scenario txns
-      2. applyTxns()  ← the SINGLE atomic balance writer (agent balances + txn docs
-                        + lastFeedAt move together; mismatch alerts can only fire
-                        on data we intentionally corrupt in Scenario C)
+      2. applyTxns()  ← the single balance-writer CODE PATH. Balances live in one
+                        agent document (that save is atomic); the txn insert is a
+                        SEPARATE write — not a multi-document transaction. If a
+                        crash lands between the two, the discrepancy surfaces as
+                        a balance_mismatch data-quality alert instead of silent
+                        corruption (fail-loud, documented in docs/architecture.md).
       3. recompute forecasts + anomalies + data-quality
       4. upsert alerts (dedup on agentId+subtype+provider while open)
          — NL text generated ONCE per alert creation/severity change, not per poll
 
-  The client's 3s poll only READS. No analytics in the request path.
+  The client's 3s poll only READS. No alert writes or NL generation in the request path.
 
   Scenarios:
     A hidden provider shortage   — steady cash_in drains Nagad e-money while totals look fine
     B liquidity + unusual        — bKash repeated-amount cash-out burst from few accounts
-                                   + CONTRAST: Rocket normal Eid burst (varied, many accounts) — must NOT flag
-    C data inconsistency         — Rocket feed goes stale + balance nudged off-book
+                                   + CONTRAST: Rocket diverse Eid burst (varied, many accounts)
+                                   → classified demand_surge (info), never a review flag
+    C data inconsistency         — Rocket feed goes stale (backdated on first tick so the
+                                   demo shows it in seconds) + balance nudged off-book
     D coordinated response       — Scenario B escalated volume => critical alert to walk the case lifecycle
 */
 
-const state = { running: false, timer: null, scenario: null, agentId: null, speed: 1, tickCount: 0 };
+const state = { running: false, ticking: false, timer: null, scenario: null, agentId: null, speed: 1, tickCount: 0 };
 let txnSeq = 0;
 const id = (p) => `${p}-${Date.now()}-${++txnSeq}`;
 const rnd = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
@@ -41,7 +46,7 @@ function makeTxn(agentId, provider, type, amount, customerHash, now) {
 }
 
 /* ---------- Scenario transaction generators (per tick) ---------- */
-function scenarioTxns(scenario, agentId, now, tickCount) {
+export function scenarioTxns(scenario, agentId, now, tickCount) {
   const txns = [];
   const cust = () => `CUST-${rnd(1000, 9999)}`;
 
@@ -59,7 +64,8 @@ function scenarioTxns(scenario, agentId, now, tickCount) {
     for (let i = 0; i < rnd(2, 3) * intensity; i++) {
       txns.push(makeTxn(agentId, 'bKash', 'cash_out', 9800 + rnd(0, 2) * 100, pick(suspiciousAccounts), now));
     }
-    // CONTRAST (must stay unflagged): Rocket normal Eid burst — varied amounts, many distinct accounts
+    // CONTRAST: Rocket diverse Eid burst — varied amounts, many distinct accounts.
+    // The velocity detector classifies this demand_surge (info), NOT a review flag.
     for (let i = 0; i < rnd(2, 3); i++) {
       txns.push(makeTxn(agentId, 'Rocket', 'cash_out', rnd(700, 6500), cust(), now));
     }
@@ -67,7 +73,7 @@ function scenarioTxns(scenario, agentId, now, tickCount) {
   }
 
   if (scenario === 'C') {
-    // Normal-ish activity; Rocket's FEED is what breaks (handled in applyTxns/corruption below)
+    // Normal-ish activity; Rocket's FEED is what breaks (backdated at tick 1, corrupted at tick 5)
     for (let i = 0; i < rnd(1, 3); i++) {
       txns.push(makeTxn(agentId, pick(['bKash', 'Nagad']), pick(['cash_in', 'cash_out']), rnd(800, 4000), cust(), now));
     }
@@ -77,43 +83,65 @@ function scenarioTxns(scenario, agentId, now, tickCount) {
   return txns;
 }
 
-/* ---------- SINGLE ATOMIC BALANCE WRITER ---------- */
-export async function applyTxns(agent, txns, { staleProvider = null } = {}) {
-  const now = new Date();
+/* ---------- Balance application (pure core — unit-testable without a DB) ----------
+   A transaction the agent cannot cover FAILS (insufficient_funds) and moves nothing —
+   exactly what happens at a real outlet when the drawer or float runs dry. Never clamp:
+   clamping fabricates value on one side and breaks opening+Σdeltas reconciliation. */
+export function applyTxnsToState(agent, txns, { staleProvider = null, now = new Date() } = {}) {
   for (const t of txns) {
-    const d = signedDelta(t);
-    agent.cashBalance = Math.max(0, agent.cashBalance + d.cash);
     const p = agent.providers.find((x) => x.provider === t.provider);
-    if (p) p.emoneyBalance = Math.max(0, p.emoneyBalance + d.emoney);
-    const bal = { cash: agent.cashBalance, emoney: p ? p.emoneyBalance : 0 };
-    t.balanceAfter = bal;
+    const d = signedDelta(t);
+    const wouldOverdraw =
+      agent.cashBalance + d.cash < 0 || (p ? p.emoneyBalance + d.emoney < 0 : d.emoney !== 0);
+    if (wouldOverdraw) {
+      t.status = 'failed';
+      t.failureReason = 'insufficient_funds';
+    } else {
+      agent.cashBalance += d.cash;
+      if (p) p.emoneyBalance += d.emoney;
+    }
+    t.balanceAfter = { cash: agent.cashBalance, emoney: p ? p.emoneyBalance : 0 };
     // Feed freshness moves WITH the balance write — except the intentionally stale provider (Scenario C)
     if (t.provider !== staleProvider) agent.lastFeedAt.set(t.provider, now);
   }
+  return txns;
+}
+
+export async function applyTxns(agent, txns, { staleProvider = null } = {}) {
+  applyTxnsToState(agent, txns, { staleProvider, now: new Date() });
   await Transaction.insertMany(txns);
   await agent.save();
 }
 
 /* ---------- Alert upsert (dedup while open) ---------- */
 const OPEN = ['new', 'acknowledged', 'in_progress', 'escalated'];
+const REALERT_COOLDOWN_MIN = 10; // a just-resolved/dismissed case is not immediately re-raised
+const KIND_BY_SUBTYPE = {
+  cash_depletion: 'liquidity',
+  emoney_depletion: 'liquidity',
+  demand_surge: 'liquidity', // demand context — informs liquidity planning, not a review flag
+  velocity_spike: 'anomaly',
+  repeated_amount: 'anomaly',
+  stale_feed: 'data_quality',
+  missing_feed: 'data_quality',
+  balance_mismatch: 'data_quality',
+};
 const ROUTE = { liquidity: 'field_officer', anomaly: 'ops', data_quality: 'ops' };
+const EVIDENCE_HISTORY_CAP = 20;
 
 async function upsertAlert(agent, finding) {
-  const kind = ['cash_depletion', 'emoney_depletion'].includes(finding.subtype)
-    ? 'liquidity'
-    : ['velocity_spike', 'repeated_amount'].includes(finding.subtype)
-      ? 'anomaly'
-      : 'data_quality';
+  const kind = KIND_BY_SUBTYPE[finding.subtype] || 'data_quality';
+  const key = { agentId: agent.agentId, subtype: finding.subtype, provider: finding.provider ?? null };
 
-  const existing = await Alert.findOne({
-    agentId: agent.agentId,
-    subtype: finding.subtype,
-    provider: finding.provider ?? null,
-    status: { $in: OPEN },
-  });
+  const existing = await Alert.findOne({ ...key, status: { $in: OPEN } });
 
   if (existing) {
     const severityChanged = existing.severity !== finding.severity;
+    // Snapshot BEFORE overwrite — evidence updates must never erase the audit record.
+    existing.evidenceHistory.push({ ts: new Date(), severity: existing.severity, confidence: existing.confidence, evidence: existing.evidence });
+    if (existing.evidenceHistory.length > EVIDENCE_HISTORY_CAP) {
+      existing.evidenceHistory = existing.evidenceHistory.slice(-EVIDENCE_HISTORY_CAP);
+    }
     existing.evidence = finding.evidence;
     existing.confidence = finding.confidence;
     existing.severity = finding.severity;
@@ -127,6 +155,15 @@ async function upsertAlert(agent, finding) {
     return { alert: existing, created: false };
   }
 
+  // Cooldown: if the same condition was resolved/dismissed moments ago, don't
+  // immediately re-open a new case — a human just handled it.
+  const recentlyClosed = await Alert.findOne({
+    ...key,
+    status: { $in: ['resolved', 'dismissed'] },
+    updatedAt: { $gte: new Date(Date.now() - REALERT_COOLDOWN_MIN * 60_000) },
+  });
+  if (recentlyClosed) return { alert: recentlyClosed, created: false, cooldown: true };
+
   const ex = await generateExplanation(finding);
   const alert = new Alert({
     alertId: id('ALT'),
@@ -139,7 +176,7 @@ async function upsertAlert(agent, finding) {
     confidence: finding.confidence,
     evidence: finding.evidence,
     possibleNormalReasons: finding.possibleNormalReasons || [],
-    requiresReview: true,
+    requiresReview: finding.requiresReview !== false,
     routedToRole: ROUTE[kind],
     ...ex,
     history: [{ actorRole: 'system', action: 'created', note: `routed to ${ROUTE[kind]}` }],
@@ -156,11 +193,12 @@ export async function recomputeAgent(agent, now = new Date()) {
   for (const p of agent.providers) txnsByProvider[p.provider] = [];
   for (const t of txns) (txnsByProvider[t.provider] ||= []).push(t);
 
-  const stale = staleProviderSet(agent, now);
-  const findings = [];
+  // Data quality FIRST — its issue map gates every forecast (dim + suppress).
+  const { issuesByProvider, findings: dqFindings } = providerDataIssues(agent, txnsByProvider, now);
+  const findings = [...dqFindings];
 
   // Liquidity
-  for (const f of forecastAgent(agent, txnsByProvider, now, stale)) {
+  for (const f of forecastAgent(agent, txnsByProvider, now, issuesByProvider)) {
     if (f.status === 'warning' || f.status === 'critical') {
       findings.push({
         subtype: f.resource === 'cash' ? 'cash_depletion' : 'emoney_depletion',
@@ -181,10 +219,6 @@ export async function recomputeAgent(agent, now = new Date()) {
     findings.push(...detectAnomalies({ provider: p.provider, recentTxns: recent, baselineTxns: baseline, now }));
   }
 
-  // Data quality
-  findings.push(...checkStaleFeeds(agent, now));
-  findings.push(...checkBalanceMismatch(agent, txnsByProvider));
-
   const alertResults = [];
   for (const f of findings) alertResults.push(await upsertAlert(agent, f));
   return { findings, alertResults };
@@ -192,11 +226,19 @@ export async function recomputeAgent(agent, now = new Date()) {
 
 /* ---------- Tick loop ---------- */
 async function tick() {
+  if (state.ticking) return { skipped: true }; // a slow tick must not overlap the next one
+  state.ticking = true;
   try {
     const agent = await Agent.findOne({ agentId: state.agentId });
     if (!agent) return { error: 'Agent not found' };
     const now = new Date();
     state.tickCount++;
+
+    // Scenario C: break Rocket's feed IMMEDIATELY — backdate its last heartbeat past the
+    // staleness threshold so the safe-fallback path demos in seconds, not in 10 real minutes.
+    if (state.scenario === 'C' && state.tickCount === 1) {
+      agent.lastFeedAt.set('Rocket', new Date(now.getTime() - (STALE_MIN + 2) * 60_000));
+    }
 
     const txns = scenarioTxns(state.scenario, agent.agentId, now, state.tickCount);
     const staleProvider = state.scenario === 'C' ? 'Rocket' : null;
@@ -214,6 +256,8 @@ async function tick() {
   } catch (err) {
     console.error('[sim] tick error:', err.message);
     return { error: err.message };
+  } finally {
+    state.ticking = false;
   }
 }
 

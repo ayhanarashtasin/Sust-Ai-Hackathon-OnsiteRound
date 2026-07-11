@@ -16,9 +16,11 @@ export function rebuildSeededState(agent, seedTxns, now = new Date()) {
     };
   });
 
+  // No clamping: the seeded history is consistent by construction (a txn the
+  // outlet could not cover was recorded as failed), so replay never goes negative.
   return {
-    cashBalance: Math.max(0, cash),
-    providerBalances: Object.fromEntries([...emoney].map(([provider, balance]) => [provider, Math.max(0, balance)])),
+    cashBalance: cash,
+    providerBalances: Object.fromEntries([...emoney]),
     transactions,
   };
 }

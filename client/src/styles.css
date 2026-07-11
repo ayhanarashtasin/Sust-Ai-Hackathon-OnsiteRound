@@ -34,6 +34,9 @@ input, select { background: var(--panel2); border: 1px solid var(--border); colo
 .balance-amt { width: 110px; text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
 .p-bkash { background: var(--bkash); } .p-nagad { background: var(--nagad); } .p-rocket { background: var(--rocket); } .p-cash { background: var(--ok); }
 .stale-tag { font-size: 11px; color: var(--warn); }
+.live-status { font-size: 12px; color: var(--dim); white-space: nowrap; }
+.live-status.error { color: var(--crit); font-weight: 600; }
+.alert-item.info { border-left-color: var(--info); opacity: 0.92; }
 
 .alert-item { border: 1px solid var(--border); border-left: 4px solid var(--info); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; background: var(--panel2); }
 .alert-item.warning { border-left-color: var(--warn); }

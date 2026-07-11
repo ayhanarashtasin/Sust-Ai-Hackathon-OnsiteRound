@@ -7,9 +7,12 @@
     send_money: agent-assisted send → economically same as cash_in
     payment   : agent-assisted pay  → economically same as cash_in
     b2b_topup : provider refills agent float → e-money ↑ only
+
+  Only SUCCESSFUL transactions move balances — failed AND pending contribute
+  nothing (a pending txn has not settled; counting it would fabricate float).
 */
 export function signedDelta(txn) {
-  if (txn.status === 'failed') return { cash: 0, emoney: 0 };
+  if (txn.status !== 'success') return { cash: 0, emoney: 0 };
   const a = txn.amount;
   switch (txn.type) {
     case 'cash_out':

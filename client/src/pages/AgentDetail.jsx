@@ -3,14 +3,15 @@ import { useParams } from 'react-router-dom';
 import { api } from '../api/client.js';
 import { usePolling } from '../hooks/usePolling.js';
 import { useAuth } from '../context/AuthContext.jsx';
-import { useLang } from '../i18n/index.js';
+import { useLang, issueLabel } from '../i18n/index.js';
 import BalanceHero from '../components/BalanceHero.jsx';
 import ForecastPanel from '../components/ForecastPanel.jsx';
 import AlertsFeed from '../components/AlertsFeed.jsx';
+import LiveStatus from '../components/LiveStatus.jsx';
 
 /*
   The demo spine page: unified balances + forecast + live alerts + "Eid rush" control.
-  Client POLLS (3s) — all computation happened on the sim tick (compute-on-write).
+  Client POLLS (3s) — alert generation happened on the sim tick (compute-on-write).
 */
 export default function AgentDetail() {
   const { id } = useParams();
@@ -25,7 +26,7 @@ export default function AgentDetail() {
   const [clearing, setClearing] = useState(false);
 
   const { data: agentData, refresh: refreshAgent } = usePolling(() => api.agent(id), 3000, [id]);
-  const { data: forecastData, refresh: refreshForecast } = usePolling(() => api.forecast(id), 3000, [id]);
+  const { data: forecastData, error: forecastError, lastUpdated, refresh: refreshForecast } = usePolling(() => api.forecast(id), 3000, [id]);
   const { data: alertsData, refresh: refreshAlerts } = usePolling(() => api.alerts(`?agentId=${id}&status=new,acknowledged,in_progress,escalated`), 3000, [id]);
 
   async function toggleSim() {
@@ -71,8 +72,10 @@ export default function AgentDetail() {
     }
   }
 
-  const dq = forecastData?.dataQualityWarnings || [];
-  const canClear = ['agent', 'field_officer', 'ops', 'risk'].includes(user?.role);
+  // All data-quality problems (stale / missing / conflicting) — not just staleness
+  const issuesByProvider = forecastData?.issuesByProvider || {};
+  const issueEntries = Object.entries(issuesByProvider);
+  const canControl = ['agent', 'field_officer', 'ops', 'risk'].includes(user?.role);
 
   return (
     <div className="page">
@@ -84,23 +87,26 @@ export default function AgentDetail() {
           <option value="C">C — Data inconsistency</option>
           <option value="D">D — Coordinated response (critical)</option>
         </select>
-        <button className={simRunning ? 'danger' : 'success'} onClick={toggleSim}>
-          {simRunning ? `⏹ ${t.stopSim}` : `🌙 ${t.eidRush} ▶`}
-        </button>
-        <button onClick={stepOnce} disabled={simRunning || stepping} title={simRunning ? t.stepDisabledHint : ''}>
-          ⏭ {stepping ? t.loading : t.step}{stepCount > 0 && !simRunning ? ` (${stepCount})` : ''}
-        </button>
-        {canClear && (
-          <button className="danger" onClick={resetDemo} disabled={clearing} title={t.resetHint}>
-            🧹 {clearing ? t.resetting : t.resetDemo}
-          </button>
+        {canControl && (
+          <>
+            <button className={simRunning ? 'danger' : 'success'} onClick={toggleSim}>
+              {simRunning ? `⏹ ${t.stopSim}` : `🌙 ${t.eidRush} ▶`}
+            </button>
+            <button onClick={stepOnce} disabled={simRunning || stepping} title={simRunning ? t.stepDisabledHint : ''}>
+              ⏭ {stepping ? t.loading : t.step}{stepCount > 0 && !simRunning ? ` (${stepCount})` : ''}
+            </button>
+            <button className="danger" onClick={resetDemo} disabled={clearing} title={t.resetHint}>
+              🧹 {clearing ? t.resetting : t.resetDemo}
+            </button>
+          </>
         )}
         <span style={{ fontSize: 12, color: 'var(--dim)' }}>SIMULATED transactions only — no real money moves.</span>
+        <span style={{ marginLeft: 'auto' }}><LiveStatus lastUpdated={lastUpdated} error={forecastError} /></span>
       </div>
 
-      {dq.length > 0 && (
+      {issueEntries.length > 0 && (
         <div className="dq-banner">
-          ⚠ {dq.map((w) => `${w.provider}: no data for ${w.ageMinutes} min`).join(' · ')} — {t.staleFeed}. Provider balances stay separate; no recommendation is issued from stale feeds.
+          ⚠ {issueEntries.map(([p, issues]) => `${p}: ${issues.map((i) => issueLabel(t, i)).join(' + ')}`).join(' · ')} — {t.recWithheld}. Provider balances stay separate; no recommendation is issued from bad data.
         </div>
       )}
 
@@ -125,7 +131,6 @@ export default function AgentDetail() {
         onDismiss={() => {
           setStepCount(0);
           setTickResult(null);
-          setSimRunning(false);
           return Promise.all([refreshAgent(), refreshForecast(), refreshAlerts()]);
         }}
       />

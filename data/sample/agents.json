@@ -1,0 +1,110 @@
+[
+  {
+    "agentId": "AGT-001",
+    "name": "Sylhet Super Agent Point",
+    "area": "Amberkhana",
+    "thana": "Sylhet Sadar",
+    "district": "Sylhet",
+    "cashBalance": 72200,
+    "cashOpeningBalance": 87000,
+    "cashFloorThreshold": 10000,
+    "providers": [
+      {
+        "provider": "bKash",
+        "emoneyBalance": 58200,
+        "openingBalance": 51000,
+        "floorThreshold": 5000
+      },
+      {
+        "provider": "Nagad",
+        "emoneyBalance": 70000,
+        "openingBalance": 74000,
+        "floorThreshold": 5000
+      },
+      {
+        "provider": "Rocket",
+        "emoneyBalance": 93600,
+        "openingBalance": 82000,
+        "floorThreshold": 5000
+      }
+    ],
+    "lastFeedAt": {
+      "bKash": "2026-07-11T12:00:00.000Z",
+      "Nagad": "2026-07-11T12:00:00.000Z",
+      "Rocket": "2026-07-11T12:00:00.000Z"
+    },
+    "simulated": true
+  },
+  {
+    "agentId": "AGT-002",
+    "name": "Zindabazar Telecom",
+    "area": "Zindabazar",
+    "thana": "Sylhet Sadar",
+    "district": "Sylhet",
+    "cashBalance": 135700,
+    "cashOpeningBalance": 118000,
+    "cashFloorThreshold": 10000,
+    "providers": [
+      {
+        "provider": "bKash",
+        "emoneyBalance": 51300,
+        "openingBalance": 52000,
+        "floorThreshold": 5000
+      },
+      {
+        "provider": "Nagad",
+        "emoneyBalance": 63000,
+        "openingBalance": 71000,
+        "floorThreshold": 5000
+      },
+      {
+        "provider": "Rocket",
+        "emoneyBalance": 48000,
+        "openingBalance": 57000,
+        "floorThreshold": 5000
+      }
+    ],
+    "lastFeedAt": {
+      "bKash": "2026-07-11T12:00:00.000Z",
+      "Nagad": "2026-07-11T12:00:00.000Z",
+      "Rocket": "2026-07-11T12:00:00.000Z"
+    },
+    "simulated": true
+  },
+  {
+    "agentId": "AGT-003",
+    "name": "Amberkhana Store",
+    "area": "Amberkhana",
+    "thana": "Sylhet Sadar",
+    "district": "Sylhet",
+    "cashBalance": 86900,
+    "cashOpeningBalance": 102000,
+    "cashFloorThreshold": 10000,
+    "providers": [
+      {
+        "provider": "bKash",
+        "emoneyBalance": 47300,
+        "openingBalance": 41000,
+        "floorThreshold": 5000
+      },
+      {
+        "provider": "Nagad",
+        "emoneyBalance": 51400,
+        "openingBalance": 48000,
+        "floorThreshold": 5000
+      },
+      {
+        "provider": "Rocket",
+        "emoneyBalance": 60400,
+        "openingBalance": 55000,
+        "floorThreshold": 5000
+      }
+    ],
+    "lastFeedAt": {
+      "bKash": "2026-07-11T12:00:00.000Z",
+      "Nagad": "2026-07-11T12:00:00.000Z",
+      "Rocket": "2026-07-11T12:00:00.000Z"
+    },
+    "simulated": true
+  }
+]

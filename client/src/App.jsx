@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext.jsx';
-import { LangContext, LANGS } from './i18n/index.js';
+import { LangContext, LANGS, useLang } from './i18n/index.js';
 import TopBar from './components/TopBar.jsx';
 import Login from './pages/Login.jsx';
 import Dashboard from './pages/Dashboard.jsx';
@@ -13,8 +13,26 @@ function Protected({ children }) {
   return user ? children : <Navigate to="/login" replace />;
 }
 
+function NotFound() {
+  const { t } = useLang();
+  return (
+    <div className="page" style={{ textAlign: 'center', paddingTop: 60 }}>
+      <h2>404 — {t.notFound}</h2>
+      <Link to="/"><button className="primary" style={{ marginTop: 12 }}>{t.goHome}</button></Link>
+    </div>
+  );
+}
+
 export default function App() {
-  const [lang, setLang] = useState('en');
+  // Language survives reloads
+  const [lang, setLangState] = useState(() => {
+    const saved = localStorage.getItem('lang');
+    return LANGS[saved] ? saved : 'en';
+  });
+  const setLang = (l) => {
+    localStorage.setItem('lang', l);
+    setLangState(l);
+  };
   return (
     <LangContext.Provider value={{ lang, t: LANGS[lang], setLang }}>
       <AuthProvider>
@@ -25,6 +43,7 @@ export default function App() {
             <Route path="/" element={<Protected><Dashboard /></Protected>} />
             <Route path="/agent/:id" element={<Protected><AgentDetail /></Protected>} />
             <Route path="/case/:id" element={<Protected><CaseView /></Protected>} />
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
       </AuthProvider>

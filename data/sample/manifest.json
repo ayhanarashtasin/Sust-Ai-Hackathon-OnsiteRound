@@ -1,0 +1,11 @@
+{
+  "seed": 20260711,
+  "anchor": "2026-07-11T12:00:00.000Z",
+  "generatedBy": "server/scripts/generate-sample-data.js (shared generator with npm run seed)",
+  "counts": {
+    "agents": 3,
+    "users": 5,
+    "transactions": 67
+  },
+  "note": "ALL DATA SIMULATED — synthetic identifiers only. Assumptions & limitations: docs/data-simulation.md"
+}

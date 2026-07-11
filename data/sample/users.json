@@ -1,0 +1,38 @@
+[
+  {
+    "name": "Rahim (Agent)",
+    "email": "agent@demo.test",
+    "role": "agent",
+    "area": "Amberkhana",
+    "agentId": "AGT-001",
+    "simulated": true
+  },
+  {
+    "name": "Karim (Field Officer)",
+    "email": "field@demo.test",
+    "role": "field_officer",
+    "area": "Amberkhana",
+    "simulated": true
+  },
+  {
+    "name": "Ops Team",
+    "email": "ops@demo.test",
+    "role": "ops",
+    "providerScope": [
+      "all"
+    ],
+    "simulated": true
+  },
+  {
+    "name": "Risk Analyst",
+    "email": "risk@demo.test",
+    "role": "risk",
+    "simulated": true
+  },
+  {
+    "name": "Management",
+    "email": "mgmt@demo.test",
+    "role": "management",
+    "simulated": true
+  }
+]

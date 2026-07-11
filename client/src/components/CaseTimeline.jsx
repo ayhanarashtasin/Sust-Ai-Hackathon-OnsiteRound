@@ -1,6 +1,6 @@
-import { useLang } from '../i18n/index.js';
+import { useLang, roleLabel } from '../i18n/index.js';
 
-/* Audit trail (Scenario D): who did what, when — every transition traceable. */
+/* Audit trail (Scenario D): WHO did what, when — actor identity + role, every transition traceable. */
 export default function CaseTimeline({ history = [] }) {
   const { t } = useLang();
   return (
@@ -9,7 +9,10 @@ export default function CaseTimeline({ history = [] }) {
       <ul className="timeline">
         {history.map((h, i) => (
           <li key={i}>
-            <div><strong>{h.action}</strong> — {h.actorRole}{h.note ? ` · ${h.note}` : ''}</div>
+            <div>
+              <strong>{h.action}</strong> — {h.actorName ? `${h.actorName} (${roleLabel(t, h.actorRole)})` : roleLabel(t, h.actorRole)}
+              {h.note ? ` · ${h.note}` : ''}
+            </div>
             <div className="ts">{new Date(h.ts).toLocaleString()}</div>
           </li>
         ))}

@@ -9,6 +9,9 @@
     "dev": "node --watch server.js",
     "seed": "node scripts/seed.js",
     "validate": "node scripts/validate.js",
+    "validate:report": "node scripts/validate.js --report",
+    "latency": "node scripts/latency-http.js",
+    "sample-data": "node scripts/generate-sample-data.js",
     "test": "node --test"
   },
   "dependencies": {

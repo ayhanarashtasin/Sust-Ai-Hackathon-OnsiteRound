@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
-import { useLang, alertTitle, alertMessage, alertNextStep } from '../i18n/index.js';
+import { useLang, alertTitle, alertMessage, alertNextStep, statusLabel } from '../i18n/index.js';
 import ConfidenceMeter from './ConfidenceMeter.jsx';
 import AlertExplanation from './AlertExplanation.jsx';
 
 /*
   Alerts feed (M3/M4/M5): every alert shows severity, confidence, message in the
   active language, evidence on the case page, and careful "requires review" framing.
+  Dismiss ARCHIVES the alert (status: dismissed, full history kept) — nothing is deleted.
 */
 export default function AlertsFeed({ alerts = [], compact = false, highlightedAlertIds = [], onDismiss }) {
   const { t, lang } = useLang();
@@ -24,7 +25,7 @@ export default function AlertsFeed({ alerts = [], compact = false, highlightedAl
     if (!window.confirm(t.dismissConfirm)) return;
     setDeletingId(alertId);
     try {
-      await api.deleteAlert(alertId);
+      await api.dismissAlert(alertId);
       setRemovedIds((ids) => new Set(ids).add(alertId));
       await onDismiss?.();
     } catch (error) {
@@ -44,7 +45,7 @@ export default function AlertsFeed({ alerts = [], compact = false, highlightedAl
             <span className="alert-title">{alertTitle(a, lang)}</span>
             <span className={`chip ${a.severity}`}>{a.severity}</span>
             {a.provider && <span className="chip">{a.provider}</span>}
-            <span className="chip status">{a.status}</span>
+            <span className="chip status">{statusLabel(t, a.status)}</span>
             {highlighted.has(a.alertId) && <span className="chip tick-chip">{t.thisTick}</span>}
             <ConfidenceMeter value={a.confidence} />
           </div>
@@ -52,7 +53,7 @@ export default function AlertsFeed({ alerts = [], compact = false, highlightedAl
             <>
               <div className="alert-msg">{alertMessage(a, lang)}</div>
               <div className="next-step">▶ {alertNextStep(a, lang)}</div>
-              {a.requiresReview && <div className="review-note">{t.requiresReview}</div>}
+              <div className="review-note">{a.requiresReview ? t.requiresReview : t.infoOnly}</div>
             </>
           )}
           {expandedId === a.alertId && <AlertExplanation alert={a} id={`explanation-${a.alertId}`} />}
@@ -65,7 +66,7 @@ export default function AlertsFeed({ alerts = [], compact = false, highlightedAl
             >
               {expandedId === a.alertId ? t.hideExplanation : t.whyThisAlert}
             </button>
-            {canDismiss && (
+            {canDismiss && ['new', 'acknowledged'].includes(a.status) && (
               <button className="danger" disabled={deletingId === a.alertId} onClick={() => dismiss(a.alertId)}>
                 {deletingId === a.alertId ? t.deleting : t.dismiss}
               </button>

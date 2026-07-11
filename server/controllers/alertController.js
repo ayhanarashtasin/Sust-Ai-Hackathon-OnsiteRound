@@ -1,13 +1,30 @@
 import Alert from '../models/Alert.js';
-import { resetSimAgent } from '../services/simEngine.js';
+import User from '../models/User.js';
+import { validateAction, ASSIGNABLE_ROLES } from '../services/caseWorkflow.js';
 
 /*
   Coordination lifecycle (Scenario D). Every transition is recorded in history[]
   — the audit trail. Escalation raises an AUTHORIZED SUPPORT REQUEST;
   it never moves liquidity (brief §14).
+
+  Provider/role boundaries are ENFORCED here, not just displayed:
+    agent         → own outlet's alerts only
+    field_officer → own area only
+    ops           → all areas
+    risk          → escalated/resolved cases
+    management    → read-only (no mutations anywhere)
+  Every read AND write goes through visibilityScope() — direct URL/API access
+  to another outlet's case returns 404.
 */
+function visibilityScope(user) {
+  if (user.role === 'agent') return { agentId: user.agentId };
+  if (user.role === 'field_officer') return { area: user.area };
+  if (user.role === 'risk') return { status: { $in: ['escalated', 'resolved'] } };
+  return {};
+}
+
 function historyEntry(req, action, note = '') {
-  return { actorUserId: req.user.id, actorRole: req.user.role, action, note };
+  return { actorUserId: req.user.id, actorName: req.user.name || null, actorRole: req.user.role, action, note };
 }
 
 export async function listAlerts(req, res) {
@@ -18,17 +35,23 @@ export async function listAlerts(req, res) {
   if (area) q.area = area;
   if (kind) q.kind = kind;
   if (agentId) q.agentId = agentId;
-  if (req.user.role === 'agent') q.agentId = req.user.agentId;
-  if (req.user.role === 'field_officer') q.area = req.user.area;
-  if (req.user.role === 'risk') q.status = q.status || { $in: ['escalated', 'resolved'] };
+  Object.assign(q, visibilityScope(req.user)); // boundary wins over query params
   const alerts = await Alert.find(q).sort({ severity: -1, updatedAt: -1 }).limit(100).lean();
   res.json({ alerts, simulated: true });
 }
 
 export async function getAlert(req, res) {
-  const alert = await Alert.findOne({ alertId: req.params.id }).lean();
+  const alert = await Alert.findOne({ alertId: req.params.id, ...visibilityScope(req.user) }).lean();
   if (!alert) return res.status(404).json({ error: 'Alert not found' });
   res.json({ alert, simulated: true });
+}
+
+/* Case-working users a case can be assigned to (drives the assignment UI). */
+export async function listAssignableUsers(req, res) {
+  const users = await User.find({ role: { $in: ASSIGNABLE_ROLES } })
+    .select('name role area')
+    .lean();
+  res.json({ users: users.map((u) => ({ id: u._id.toString(), name: u.name, role: u.role, area: u.area })), simulated: true });
 }
 
 /*
@@ -40,28 +63,22 @@ export async function getAlert(req, res) {
 export async function clearAlerts(req, res) {
   const q = {};
   if (req.query.agentId) q.agentId = req.query.agentId;
-  if (req.user.role === 'agent') q.agentId = req.user.agentId;
-  if (req.user.role === 'field_officer') q.area = req.user.area;
-  if (req.user.role === 'risk') q.status = { $in: ['escalated', 'resolved'] };
+  Object.assign(q, visibilityScope(req.user));
   const { deletedCount } = await Alert.deleteMany(q);
   res.json({ deleted: true, deletedCount, simulated: true });
 }
 
-export async function deleteAlert(req, res) {
-  const q = { alertId: req.params.id };
-  if (req.user.role === 'agent') q.agentId = req.user.agentId;
-  if (req.user.role === 'field_officer') q.area = req.user.area;
-  if (req.user.role === 'risk') q.status = { $in: ['escalated', 'resolved'] };
-  const alert = await Alert.findOne(q);
+/*
+  Shared transition executor: scope check (404) → workflow validation
+  (403 role / 409 illegal state / 400 bad target) → write + audit entry.
+*/
+async function transition(req, res, { action, status, note, extra = {}, targetRole = null }) {
+  const alert = await Alert.findOne({ alertId: req.params.id, ...visibilityScope(req.user) });
   if (!alert) return res.status(404).json({ error: 'Alert not found' });
-  const reset = await resetSimAgent(alert.agentId);
-  if (reset.error) return res.status(500).json({ error: reset.error });
-  res.json({ deleted: true, alertId: alert.alertId, reset, simulated: true });
-}
 
-async function transition(req, res, { action, status, note, extra = {} }) {
-  const alert = await Alert.findOne({ alertId: req.params.id });
-  if (!alert) return res.status(404).json({ error: 'Alert not found' });
+  const verdict = validateAction({ action, role: req.user.role, currentStatus: alert.status, targetRole });
+  if (!verdict.ok) return res.status(verdict.code).json({ error: verdict.error });
+
   Object.assign(alert, extra);
   if (status) alert.status = status;
   if (status === 'resolved') alert.resolvedAt = new Date();
@@ -71,16 +88,55 @@ async function transition(req, res, { action, status, note, extra = {} }) {
 }
 
 export const acknowledge = (req, res) =>
-  transition(req, res, { action: 'acknowledged', status: 'acknowledged', extra: { ownerUserId: req.user.id } });
+  transition(req, res, {
+    action: 'acknowledge',
+    status: 'acknowledged',
+    extra: { ownerUserId: req.user.id, ownerName: req.user.name || null },
+  });
 
-export const assign = (req, res) =>
-  transition(req, res, { action: 'assigned', status: 'in_progress', note: `assigned to ${req.body?.userId || req.user.id}`, extra: { ownerUserId: req.body?.userId || req.user.id } });
+/* Assignment targets must be real, case-working users — no arbitrary IDs. */
+export async function assign(req, res) {
+  const targetId = req.body?.userId;
+  if (!targetId) return res.status(400).json({ error: 'userId required' });
+  let target;
+  try {
+    target = await User.findById(targetId).lean();
+  } catch {
+    target = null; // malformed ObjectId
+  }
+  if (!target || !ASSIGNABLE_ROLES.includes(target.role)) {
+    return res.status(400).json({ error: `Assignee must be an existing user with role: ${ASSIGNABLE_ROLES.join(', ')}` });
+  }
+  return transition(req, res, {
+    action: 'assign',
+    status: 'in_progress',
+    note: `assigned to ${target.name} (${target.role})`,
+    extra: { ownerUserId: target._id.toString(), ownerName: target.name },
+  });
+}
 
-export const escalate = (req, res) =>
-  transition(req, res, { action: 'escalated', status: 'escalated', note: req.body?.note || `escalated to ${req.body?.toRole || 'risk'} — authorized support request`, extra: { routedToRole: req.body?.toRole || 'risk' } });
+export const escalate = (req, res) => {
+  const toRole = req.body?.toRole || 'risk';
+  return transition(req, res, {
+    action: 'escalate',
+    status: 'escalated',
+    note: req.body?.note || `escalated to ${toRole} — authorized support request`,
+    extra: { routedToRole: toRole },
+    targetRole: toRole,
+  });
+};
 
 export const resolve = (req, res) =>
-  transition(req, res, { action: 'resolved', status: 'resolved' });
+  transition(req, res, { action: 'resolve', status: 'resolved' });
 
 export const addNote = (req, res) =>
   transition(req, res, { action: 'note', note: req.body?.note || '' });
+
+/*
+  Dismiss = ARCHIVE with an audit entry. It never deletes the alert, never
+  touches transactions or balances (the old behavior reset the whole outlet —
+  that destroyed the audit trail). The sim's re-alert cooldown keeps the same
+  condition from instantly re-opening a fresh case.
+*/
+export const dismiss = (req, res) =>
+  transition(req, res, { action: 'dismiss', status: 'dismissed', note: req.body?.note || 'dismissed after review' });

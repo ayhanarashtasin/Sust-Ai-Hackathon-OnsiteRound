@@ -12,6 +12,7 @@ const transactionSchema = new mongoose.Schema(
     },
     amount: { type: Number, required: true },
     status: { type: String, enum: ['success', 'failed', 'pending'], default: 'success' },
+    failureReason: { type: String, enum: ['insufficient_funds', 'provider_error', null], default: null },
     customerHash: { type: String, required: true }, // synthetic anonymized id — NOT a real identity
     timestamp: { type: Date, required: true },
     balanceAfter: {

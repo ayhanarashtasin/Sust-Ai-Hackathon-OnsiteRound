@@ -93,6 +93,17 @@ input, select { background: var(--panel2); border: 1px solid var(--border); colo
 .simbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .tick-summary { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 14px; border: 1px solid var(--info); border-radius: 10px; background: rgba(52,152,219,0.08); font-size: 13px; }
 .tick-summary span { color: var(--dim); }
+.public-status-header { display: flex; justify-content: space-between; gap: 16px; align-items: center; }
+.public-status-header h2 { margin-bottom: 6px; }
+.public-status-header p { margin: 0; color: var(--dim); font-size: 14px; line-height: 1.5; }
+.service-provider-list { display: grid; gap: 8px; }
+.service-provider { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed var(--border); padding: 8px 0; }
+.service-provider:last-child { border-bottom: none; }
+.service-status { border-radius: 999px; padding: 3px 8px; font-size: 12px; font-weight: 700; }
+.service-status.normal { color: var(--ok); background: rgba(46,204,113,0.1); }
+.service-status.watch { color: var(--warn); background: rgba(241,196,15,0.1); }
+.service-status.critical { color: var(--crit); background: rgba(231,76,60,0.1); }
+@media (max-width: 640px) { .public-status-header { align-items: flex-start; flex-direction: column; } }
 table.txns { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 table.txns td, table.txns th { padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: left; }
 table.txns th { color: var(--dim); font-weight: 600; }

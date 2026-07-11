@@ -50,6 +50,27 @@ test('OpenAI output containing banned language is rejected and falls back to the
   }
 });
 
+test('repeated-amount alerts retain their exact deterministic evidence when OpenAI is available', async () => {
+  const original = globalThis.fetch;
+  process.env.OPENAI_API_KEY = 'test-key';
+  try {
+    stubFetch({ choices: [{ message: { content: JSON.stringify({
+      message_en: 'A vague message.', message_bn: 'অস্পষ্ট বার্তা।', message_banglish: 'Osposhto barta.',
+    }) } }] });
+    const out = await generateExplanation({
+      subtype: 'repeated_amount',
+      severity: 'warning',
+      confidence: 0.93,
+      evidence: { provider: 'bKash', amount: 9883, amountMin: 9800, amountMax: 10000, repeatCount: 6, distinctAccounts: 3, windowMinutes: 30 },
+    });
+    assert.equal(out.explanationSource, 'template');
+    assert.match(out.message_en, /6 cash-outs between .*9,800.*10,000/i);
+  } finally {
+    globalThis.fetch = original;
+    delete process.env.OPENAI_API_KEY;
+  }
+});
+
 test('a non-OK OpenAI response falls back to the template', async () => {
   const original = globalThis.fetch;
   process.env.OPENAI_API_KEY = 'test-key';

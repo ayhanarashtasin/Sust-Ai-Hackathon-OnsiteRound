@@ -34,14 +34,15 @@ export default function CaseView() {
   const [showExplanation, setShowExplanation] = useState(false);
   const { data, error, lastUpdated, refresh } = usePolling(() => api.alert(id), 3000, [id]);
 
-  const canManage = ['field_officer', 'ops', 'risk'].includes(user?.role);
-  const canAck = ['agent', 'field_officer', 'ops', 'risk'].includes(user?.role);
+  const a = data?.alert;
+  const isRoutedWorker = a && user?.role === a.routedToRole && (!a.ownerUserId || !user.id || a.ownerUserId === user.id);
+  const canManage = ['field_officer', 'ops', 'risk'].includes(user?.role) && isRoutedWorker;
+  const canAck = user?.role === 'agent' || isRoutedWorker;
 
   useEffect(() => {
     if (canManage) api.assignableUsers().then((d) => setAssignableUsers(d.users || [])).catch(() => {});
   }, [canManage]);
 
-  const a = data?.alert;
   if (!a) return <div className="page">{error ? <LiveStatus lastUpdated={lastUpdated} error={error} /> : t.loading}</div>;
 
   async function act(action, body = {}) {
@@ -108,7 +109,7 @@ export default function CaseView() {
             <>
               <select value={assignee} onChange={(e) => setAssignee(e.target.value)}>
                 <option value="">{t.assignTo}</option>
-                {assignableUsers.map((u) => (
+                {assignableUsers.filter((u) => u.role === a.routedToRole).map((u) => (
                   <option key={u.id} value={u.id}>{u.name} ({roleLabel(t, u.role)})</option>
                 ))}
               </select>

@@ -27,11 +27,11 @@ async function evaluate(req) {
   const allowed = allowedProviders(req.user);
   if (allowed) {
     result.providerDecisions = result.providerDecisions.filter((decision) => allowed.includes(decision.provider));
-    result.forecasts = result.forecasts.filter((forecast) => forecast.resource === 'cash' || allowed.includes(forecast.provider));
+    result.forecasts = result.forecasts.filter((forecast) => allowed.includes(forecast.provider));
     result.dataQuality.issuesByProvider = Object.fromEntries(
       Object.entries(result.dataQuality.issuesByProvider).filter(([provider]) => allowed.includes(provider)),
     );
-    result.dataQuality.findings = result.dataQuality.findings.filter((finding) => finding.provider == null || allowed.includes(finding.provider));
+    result.dataQuality.findings = result.dataQuality.findings.filter((finding) => allowed.includes(finding.provider));
     result.mainPressure = result.providerDecisions
       .flatMap((decision) => [decision.liquidity, decision.anomaly])
       .sort((left, right) => right.riskScore - left.riskScore)[0] || null;

@@ -8,6 +8,7 @@ import { providerDataIssues, STALE_MIN } from './dataQuality.js';
 import { generateExplanation } from './explain.js';
 import { rebuildSeededState } from './demoReset.js';
 import { evaluateDecisionSupport } from './ml/decisionSupport.js';
+import { notifyDataUpdate } from './liveUpdates.js';
 
 /*
   Sim engine — COMPUTE-ON-WRITE (eng-review decision #2).
@@ -154,6 +155,9 @@ async function upsertAlert(agent, finding) {
     existing.riskBand = finding.riskBand ?? existing.riskBand;
     existing.modelType = finding.modelType ?? existing.modelType;
     existing.modelVersion = finding.modelVersion ?? existing.modelVersion;
+    if ('modelProbability' in finding) existing.modelProbability = finding.modelProbability;
+    if ('modelThreshold' in finding) existing.modelThreshold = finding.modelThreshold;
+    if ('decisionMode' in finding) existing.decisionMode = finding.decisionMode;
     existing.featureSchemaVersion = finding.featureSchemaVersion ?? existing.featureSchemaVersion;
     existing.decisionSource = finding.decisionSource ?? existing.decisionSource;
     existing.triggeredRules = finding.triggeredRules ?? existing.triggeredRules;
@@ -195,6 +199,9 @@ async function upsertAlert(agent, finding) {
     riskBand: finding.riskBand ?? 'unknown',
     modelType: finding.modelType ?? null,
     modelVersion: finding.modelVersion ?? null,
+    modelProbability: finding.modelProbability ?? null,
+    modelThreshold: finding.modelThreshold ?? null,
+    decisionMode: finding.decisionMode ?? 'none',
     featureSchemaVersion: finding.featureSchemaVersion ?? null,
     decisionSource: finding.decisionSource ?? 'rules_only',
     triggeredRules: finding.triggeredRules ?? [],
@@ -250,7 +257,7 @@ export async function recomputeAgent(agent, now = new Date()) {
   const byProvider = new Map(decisionSupport.providerDecisions.map((decision) => [decision.provider, decision]));
   for (const finding of findings) {
     const decision = byProvider.get(finding.provider);
-    const selected = finding.kind === 'anomaly' || ['velocity_spike', 'repeated_amount'].includes(finding.subtype)
+    const selected = finding.kind === 'anomaly' || ['velocity_spike', 'demand_surge', 'repeated_amount'].includes(finding.subtype)
       ? decision?.anomaly : decision?.liquidity;
     if (!selected) continue;
     finding.riskScore = selected.riskScore;
@@ -259,6 +266,9 @@ export async function recomputeAgent(agent, now = new Date()) {
     finding.riskBand = selected.riskBand;
     finding.modelType = selected.model?.type || null;
     finding.modelVersion = selected.model?.version || null;
+    finding.modelProbability = selected.model?.probability ?? null;
+    finding.modelThreshold = selected.model?.threshold ?? null;
+    finding.decisionMode = selected.mode;
     finding.featureSchemaVersion = decision.features.schemaVersion;
     finding.decisionSource = selected.decisionSource;
     finding.triggeredRules = selected.triggeredRules;
@@ -274,6 +284,9 @@ export async function recomputeAgent(agent, now = new Date()) {
     if (decision.liquidity.alert && decision.liquidity.mode === 'model_only' && !hasLiquidity) {
       findings.push({
         ...decision.liquidity,
+        decisionMode: decision.liquidity.mode,
+        modelProbability: decision.liquidity.model?.probability ?? null,
+        modelThreshold: decision.liquidity.model?.threshold ?? null,
         subtype: 'model_liquidity_risk', provider: decision.provider, severity: decision.liquidity.riskBand === 'critical' ? 'critical' : 'warning',
         confidence: decision.liquidity.confidenceScore, requiresReview: false,
         evidence: { provider: decision.provider, riskScore: decision.liquidity.riskScore, confidenceScore: decision.liquidity.confidenceScore, evidence: decision.liquidity.evidence },
@@ -282,6 +295,9 @@ export async function recomputeAgent(agent, now = new Date()) {
     if (decision.anomaly.alert && decision.anomaly.mode === 'model_only' && !hasAnomaly) {
       findings.push({
         ...decision.anomaly,
+        decisionMode: decision.anomaly.mode,
+        modelProbability: decision.anomaly.model?.probability ?? null,
+        modelThreshold: decision.anomaly.model?.threshold ?? null,
         subtype: 'model_unusual_review', provider: decision.provider, severity: decision.anomaly.riskBand === 'critical' ? 'critical' : 'warning',
         confidence: decision.anomaly.confidenceScore, requiresReview: true,
         evidence: { provider: decision.provider, riskScore: decision.anomaly.riskScore, confidenceScore: decision.anomaly.confidenceScore, evidence: decision.anomaly.evidence },
@@ -322,6 +338,7 @@ async function tick() {
     }
 
     const analysis = await recomputeAgent(agent, now);
+    notifyDataUpdate();
     return { transactionCount: txns.length, ...analysis };
   } catch (err) {
     console.error('[sim] tick error:', err.message);
@@ -406,6 +423,7 @@ export async function resetSimAgent(agentId) {
   for (const provider of agent.providers) provider.emoneyBalance = baseline.providerBalances[provider.provider];
   agent.lastFeedAt = new Map(agent.providers.map((provider) => [provider.provider, now]));
   await agent.save();
+  notifyDataUpdate();
 
   state.scenario = null;
   state.agentId = null;

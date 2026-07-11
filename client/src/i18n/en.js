@@ -45,5 +45,9 @@ export default {
   top3Share: 'Share from top 3 accounts', amountVariation: 'Amount variation',
   repeatedAmount: 'Repeated amount', repeatCount: 'Repeat count', distinctAccounts: 'Distinct accounts', lastFeedUpdate: 'Last feed update', feedAge: 'Feed age',
   expectedBalance: 'Expected balance', reportedBalance: 'Reported balance', difference: 'Difference', minute: 'minute', minutes: 'minutes', notAvailable: 'Not available',
+  decisionMethod: 'Decision method', modelRiskScore: 'ML risk score', reviewThreshold: 'Review threshold', dataConfidence: 'Data confidence', notRecorded: 'Not recorded for this alert', modelUnavailable: 'ML unavailable',
+  decisionCriticalOverride: 'Critical safety rule override', decisionModelRuleAgreement: 'Model and rules agree', decisionModelOnly: 'Model-based decision', decisionRuleOnly: 'Rule-based decision', decisionHybrid: 'ML and rule signals', decisionNoSignal: 'No decision signal',
+  visibleProviderTotal: 'Visible provider scope total', managementOverview: 'Management overview', areaReadiness: 'Area readiness', openAlerts: 'Open alerts', criticalAlerts: 'Critical alerts', recurringPatterns: 'Recurring patterns', readinessReady: 'Ready', readinessAttention: 'Needs attention', readinessCritical: 'Critical',
+  peerComparison: 'Area peer comparison', openAlertsPerAgent: 'Open alerts per agent', serviceStatus: 'Service status', serviceStatusNote: 'Provider availability by area. This page shows service signals only, not balances, transactions, or personal information.', serviceNormal: 'Operating normally', serviceWatch: 'Monitoring service', serviceLimited: 'Service may be limited',
   normalEidDemand: 'Pre-Eid cash-out demand', normalSalarySpike: 'Salary-day spike', normalFeedIssue: 'Provider feed delay or data-quality issue',
 };

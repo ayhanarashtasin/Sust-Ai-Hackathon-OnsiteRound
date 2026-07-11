@@ -80,7 +80,8 @@ export default function AgentDetail() {
   // All data-quality problems (stale / missing / conflicting) — not just staleness
   const issuesByProvider = forecastData?.issuesByProvider || {};
   const issueEntries = Object.entries(issuesByProvider);
-  const canControl = ['agent', 'field_officer', 'ops', 'risk'].includes(user?.role);
+  const canControl = user?.role === 'agent' || user?.role === 'field_officer'
+    || (user?.role === 'ops' && user.providerScope?.includes('all'));
   const mainPressure = decisionData?.decisionSupport?.mainPressure;
   const models = modelData?.models || [];
   const unavailableModel = models.find((model) => !model.available);

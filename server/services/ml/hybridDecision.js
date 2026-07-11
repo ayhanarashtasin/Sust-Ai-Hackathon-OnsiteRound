@@ -55,7 +55,7 @@ function decide(type, model, rules, features) {
     decisionSource: confidenceResult.source,
     fallbackReason: confidenceResult.fallbackReason,
     model: model.available ? {
-      type: model.modelType, version: model.modelVersion, probability: model.probability, threshold: model.threshold,
+      type: model.modelType, version: model.modelVersion, probability: model.probability, threshold,
     } : null,
     mode,
     alert,

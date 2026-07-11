@@ -9,6 +9,7 @@ export default function TopBar() {
     <div className="topbar">
       <Link to="/"><h1>🏦 {t.appTitle}</h1></Link>
       <span className="badge-sim">{t.simulated}</span>
+      <Link to="/service-status"><button>{t.serviceStatus}</button></Link>
       {user && <span className="badge-role">{user.name} · {user.role}</span>}
       <select value={lang} onChange={(e) => setLang(e.target.value)}>
         <option value="en">EN</option>

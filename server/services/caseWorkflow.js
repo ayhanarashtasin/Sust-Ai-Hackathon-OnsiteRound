@@ -46,6 +46,14 @@ export function roleCanAct(action, role) {
   return (ACTION_ROLES[action] || []).includes(role);
 }
 
+/* The outlet can acknowledge or comment on its own case. Operational work stays
+   with the routed team, and an assigned case stays with its named owner. */
+export function hasCaseAuthority({ action, user, alert }) {
+  if (user.role === 'agent') return ['acknowledge', 'note', 'dismiss'].includes(action);
+  if (alert.routedToRole !== user.role) return false;
+  return !alert.ownerUserId || alert.ownerUserId === user.id;
+}
+
 /*
   Full validation for one action. Returns { ok: true } or { ok: false, code, error }.
   code: 403 (role/boundary) or 409 (illegal state transition) or 400 (bad target).

@@ -29,5 +29,10 @@ export function usePolling(fetcher, intervalMs = 3000, deps = []) {
     return () => { alive.current = false; clearInterval(t); };
   }, [load, intervalMs]);
 
+  useEffect(() => {
+    window.addEventListener('sust:data-updated', load);
+    return () => window.removeEventListener('sust:data-updated', load);
+  }, [load]);
+
   return { data, error, lastUpdated, refresh: load };
 }

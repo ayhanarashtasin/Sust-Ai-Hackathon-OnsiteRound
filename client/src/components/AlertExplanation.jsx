@@ -15,6 +15,19 @@ export default function AlertExplanation({ alert, id }) {
     'Salary-day spike': t.normalSalarySpike,
     'Provider feed delay or data-quality issue': t.normalFeedIssue,
   };
+  const decisionModeLabels = {
+    critical_override: t.decisionCriticalOverride,
+    model_rule_agreement: t.decisionModelRuleAgreement,
+    model_only: t.decisionModelOnly,
+    rule_only: t.decisionRuleOnly,
+    none: t.decisionNoSignal,
+  };
+  const decisionSourceLabels = {
+    hybrid: t.decisionHybrid,
+    model: t.decisionModelOnly,
+    rules: t.decisionRuleOnly,
+    rules_only: t.decisionRuleOnly,
+  };
 
   const add = (label, value) => rows.push({ label, value });
 
@@ -78,6 +91,14 @@ export default function AlertExplanation({ alert, id }) {
   }
 
   add(t.confidence, percent(alert.confidence));
+  add(t.decisionMethod, decisionModeLabels[alert.decisionMode] || decisionSourceLabels[alert.decisionSource] || t.notRecorded);
+  add(
+    t.modelRiskScore,
+    alert.modelProbability != null
+      ? `${percent(alert.modelProbability)} (${t.reviewThreshold}: ${percent(alert.modelThreshold)})`
+      : alert.fallbackReason ? `${t.modelUnavailable}: ${alert.fallbackReason}` : t.notRecorded,
+  );
+  add(t.dataConfidence, alert.dataConfidence != null ? percent(alert.dataConfidence) : t.notRecorded);
 
   return (
     <section className="alert-explanation" id={id} aria-label={t.whyThisAlert}>

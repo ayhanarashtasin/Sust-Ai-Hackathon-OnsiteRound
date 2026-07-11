@@ -9,6 +9,7 @@ import { startSim, stopSim, stepSim, resetSimAgent, simStatus } from '../service
 */
 async function findControllableAgent(user, value) {
   if (typeof value !== 'string' || !/^AGT-\d{3}$/.test(value)) return null;
+  if (!canDriveSimulation(user)) return null;
   if (user.role === 'agent' && user.agentId !== value) return null;
 
   // Query only by trusted claims from the signed JWT, then compare request data
@@ -22,6 +23,11 @@ async function findControllableAgent(user, value) {
   return visibleAgents.find((agent) => agent.agentId === value) || null;
 }
 
+export function canDriveSimulation(user) {
+  if (user.role === 'agent' || user.role === 'field_officer') return true;
+  return user.role === 'ops' && user.providerScope?.includes('all');
+}
+
 export async function start(req, res) {
   const { agentId, scenario = 'B', speed = 1 } = req.body || {};
   if (!agentId) return res.status(400).json({ error: 'agentId required' });
@@ -31,7 +37,11 @@ export async function start(req, res) {
   res.json({ sim: startSim({ agentId: agent.agentId, scenario, speed: Math.min(5, Number(speed) || 1) }), simulated: true });
 }
 
-export function stop(req, res) {
+export async function stop(req, res) {
+  const active = simStatus();
+  if (active.running && !(await findControllableAgent(req.user, active.agentId))) {
+    return res.status(403).json({ error: 'Insufficient role or invalid agent' });
+  }
   res.json({ sim: stopSim(), simulated: true });
 }
 

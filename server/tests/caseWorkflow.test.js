@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validateAction, canTransition, roleCanAct, ESCALATION_TARGETS, ASSIGNABLE_ROLES } from '../services/caseWorkflow.js';
+import { validateAction, canTransition, roleCanAct, hasCaseAuthority, ESCALATION_TARGETS, ASSIGNABLE_ROLES } from '../services/caseWorkflow.js';
 
 /*
   Case-lifecycle guarantees (Scenario D / auditability):
@@ -65,4 +65,13 @@ test('post-resolution notes are allowed (review log), other mutations are not', 
 
 test('assignment targets exclude agents and management', () => {
   assert.deepEqual([...ASSIGNABLE_ROLES].sort(), ['field_officer', 'ops', 'risk']);
+});
+
+test('only the routed team and assigned owner can work an operational case', () => {
+  const alert = { routedToRole: 'ops', ownerUserId: 'ops-1' };
+  assert.equal(hasCaseAuthority({ action: 'resolve', user: { id: 'ops-1', role: 'ops' }, alert }), true);
+  assert.equal(hasCaseAuthority({ action: 'resolve', user: { id: 'ops-2', role: 'ops' }, alert }), false);
+  assert.equal(hasCaseAuthority({ action: 'resolve', user: { id: 'field-1', role: 'field_officer' }, alert }), false);
+  assert.equal(hasCaseAuthority({ action: 'acknowledge', user: { id: 'agent-1', role: 'agent' }, alert }), true);
+  assert.equal(hasCaseAuthority({ action: 'resolve', user: { id: 'agent-1', role: 'agent' }, alert }), false);
 });

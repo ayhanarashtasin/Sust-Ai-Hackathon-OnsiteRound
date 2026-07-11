@@ -44,7 +44,7 @@ export async function login(req, res) {
     return res.status(401).json({ error: 'Invalid credentials' });
   }
   failures.delete(key);
-  res.json({ token: sign(user), user: { name: user.name, role: user.role, area: user.area, providerScope: user.providerScope, agentId: user.agentId } });
+  res.json({ token: sign(user), user: { id: user._id.toString(), name: user.name, role: user.role, area: user.area, providerScope: user.providerScope, agentId: user.agentId } });
 }
 
 export async function me(req, res) {

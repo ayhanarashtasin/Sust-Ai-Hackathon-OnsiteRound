@@ -2,13 +2,16 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import mongoose from 'mongoose';
+import { Server } from 'socket.io';
 import { connectDB } from './config/db.js';
-import { jwtSecret } from './middleware/auth.js';
+import { jwtSecret, verifyToken } from './middleware/auth.js';
 import authRoutes from './routes/authRoutes.js';
 import agentRoutes from './routes/agentRoutes.js';
 import alertRoutes from './routes/alertRoutes.js';
 import simRoutes from './routes/simRoutes.js';
 import modelRoutes from './routes/modelRoutes.js';
+import publicRoutes from './routes/publicRoutes.js';
+import { liveUpdates } from './services/liveUpdates.js';
 
 /*
   MVC layout:
@@ -45,6 +48,7 @@ app.get('/api/health', (_req, res) => {
   const dbUp = mongoose.connection.readyState === 1;
   res.status(dbUp ? 200 : 503).json({ ok: dbUp, db: dbUp ? 'connected' : 'disconnected', simulated: true });
 });
+app.use('/api/public', publicRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/agents', agentRoutes);
 app.use('/api/alerts', alertRoutes);
@@ -62,10 +66,22 @@ const PORT = process.env.PORT || 5000;
 connectDB()
   .then(() => {
     const server = app.listen(PORT, () => console.log(`[server] listening on :${PORT} — SIMULATED DATA ONLY`));
+    const io = new Server(server, { cors: { origin: ORIGINS, methods: ['GET', 'POST'] } });
+    io.use((socket, next) => {
+      try {
+        socket.user = verifyToken(socket.handshake.auth?.token);
+        next();
+      } catch {
+        next(new Error('Authentication required'));
+      }
+    });
+    const broadcastDataUpdate = () => io.emit('data-updated');
+    liveUpdates.on('data-updated', broadcastDataUpdate);
     // Graceful shutdown: stop accepting connections, then close the DB.
     const shutdown = (signal) => {
       console.log(`[server] ${signal} — shutting down`);
-      server.close(() => mongoose.disconnect().then(() => process.exit(0)));
+      liveUpdates.off('data-updated', broadcastDataUpdate);
+      io.close(() => server.close(() => mongoose.disconnect().then(() => process.exit(0))));
       setTimeout(() => process.exit(1), 5000).unref(); // hard exit if close hangs
     };
     process.on('SIGINT', () => shutdown('SIGINT'));

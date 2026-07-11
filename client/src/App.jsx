@@ -7,6 +7,7 @@ import Login from './pages/Login.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import AgentDetail from './pages/AgentDetail.jsx';
 import CaseView from './pages/CaseView.jsx';
+import ServiceStatus from './pages/ServiceStatus.jsx';
 
 function Protected({ children }) {
   const { user } = useAuth();
@@ -50,6 +51,7 @@ export default function App() {
           <TopBar />
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/service-status" element={<ServiceStatus />} />
             <Route path="/" element={<Protected><Dashboard /></Protected>} />
             <Route path="/agent/:id" element={<Protected><AgentDetail /></Protected>} />
             <Route path="/case/:id" element={<Protected><CaseView /></Protected>} />

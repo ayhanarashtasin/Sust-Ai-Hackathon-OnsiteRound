@@ -77,18 +77,21 @@ export function templateExplanation(finding) {
         recommendedNextStep_bn: `পর্যালোচনার প্রয়োজন নেই। লিকুইডিটি পূর্বাভাসে নজর রাখুন — বেশি চাহিদায় ব্যালেন্স দ্রুত কমে।`,
         recommendedNextStep_banglish: `Review lagbe na. Liquidity forecast e nojor rakhun — beshi demand e balance druto kome.`,
       };
-    case 'repeated_amount':
+    case 'repeated_amount': {
+      const amountMin = e.amountMin ?? e.amount;
+      const amountMax = e.amountMax ?? e.amount;
       return {
         title_en: `Repeated near-identical ${e.provider} cash-outs — requires review`,
         title_bn: `${e.provider}-এ প্রায় একই পরিমাণের বারবার ক্যাশ-আউট — পর্যালোচনা প্রয়োজন`,
         title_banglish: `${e.provider}-e proyay ek e amount er barbar cash-out — review dorkar`,
-        message_en: `${e.repeatCount} cash-outs of ~${taka(e.amount)} came from only ${e.distinctAccounts} account(s) within ${e.windowMinutes} minutes. This pattern is unusual and requires review; it may still have a normal explanation.`,
-        message_bn: `${e.windowMinutes} মিনিটের মধ্যে মাত্র ${e.distinctAccounts}টি অ্যাকাউন্ট থেকে ~${taka(e.amount)} পরিমাণের ${e.repeatCount}টি ক্যাশ-আউট হয়েছে। এই ধরনটি অস্বাভাবিক এবং পর্যালোচনা প্রয়োজন; তবে স্বাভাবিক ব্যাখ্যাও থাকতে পারে।`,
-        message_banglish: `${e.windowMinutes} minute er moddhe matro ${e.distinctAccounts} ta account theke ~${taka(e.amount)} er ${e.repeatCount} ta cash-out hoyeche. Pattern ta unusual, review dorkar.`,
-        recommendedNextStep_en: `Review the listed transactions with the field officer before any large cash replenishment.`,
-        recommendedNextStep_bn: `বড় অঙ্কের নগদ সরবরাহের আগে তালিকাভুক্ত লেনদেনগুলো ফিল্ড অফিসারের সাথে পর্যালোচনা করুন।`,
-        recommendedNextStep_banglish: `Boro amount er cash refill er age listed lenden gulo field officer er sathe review korun.`,
+        message_en: `${e.repeatCount} cash-outs between ${taka(amountMin)} and ${taka(amountMax)} came from only ${e.distinctAccounts} account(s) within ${e.windowMinutes} minutes. This crosses the repeated-amount review threshold; it may still have a normal explanation.`,
+        message_bn: `${e.windowMinutes} মিনিটের মধ্যে মাত্র ${e.distinctAccounts}টি অ্যাকাউন্ট থেকে ${taka(amountMin)} থেকে ${taka(amountMax)} পরিমাণের ${e.repeatCount}টি ক্যাশ-আউট হয়েছে। এটি পুনরাবৃত্ত পরিমাণের পর্যালোচনা সীমা অতিক্রম করেছে; তবে স্বাভাবিক ব্যাখ্যাও থাকতে পারে।`,
+        message_banglish: `${e.windowMinutes} minute er moddhe matro ${e.distinctAccounts} ta account theke ${taka(amountMin)} theke ${taka(amountMax)} er ${e.repeatCount} ta cash-out hoyeche. Eta repeated-amount review threshold cross koreche, kintu normal explanation o thakte pare.`,
+        recommendedNextStep_en: `Review the ${e.repeatCount} listed transactions with provider operations or risk staff before any major response.`,
+        recommendedNextStep_bn: `বড় কোনো প্রতিক্রিয়ার আগে ${e.repeatCount}টি তালিকাভুক্ত লেনদেন প্রোভাইডার অপারেশনস বা রিস্ক টিমের সাথে পর্যালোচনা করুন।`,
+        recommendedNextStep_banglish: `Boro response er age ${e.repeatCount} ta listed lenden provider operations ba risk team er sathe review korun.`,
       };
+    }
     case 'stale_feed':
       return {
         title_en: `${e.provider} data feed is delayed — reduced confidence`,
@@ -205,6 +208,7 @@ async function openaiExplanation(finding) {
 /* Public API: always returns a complete, guard-safe explanation + which path produced it. */
 export async function generateExplanation(finding) {
   const template = templateExplanation(finding);
+  if (finding.subtype === 'repeated_amount') return { ...template, explanationSource: 'template' };
   const ai = await openaiExplanation(finding);
   if (ai) {
     return {

@@ -34,7 +34,7 @@ export default function BalanceHero({ agent, staleProviders = [] }) {
           stale={staleProviders.includes(p.provider)} staleText={t.staleFeed} />
       ))}
       <div style={{ marginTop: 10, fontSize: 13, color: 'var(--dim)' }}>
-        {t.total}: <strong style={{ color: 'var(--text)' }}>{taka(total)}</strong>
+        {agent.providerScopeRestricted ? t.visibleProviderTotal : t.total}: <strong style={{ color: 'var(--text)' }}>{taka(total)}</strong>
       </div>
     </div>
   );

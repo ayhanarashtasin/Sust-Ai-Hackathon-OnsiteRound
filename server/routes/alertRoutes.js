@@ -14,9 +14,9 @@ const CASE_WORKERS = ['agent', 'field_officer', 'ops', 'risk'];
 
 const router = Router();
 router.use(requireAuth);
-router.get('/', asyncH(listAlerts));
+router.get('/', requireRole('agent', 'field_officer', 'ops', 'risk'), asyncH(listAlerts));
 router.get('/assignable-users', requireRole('field_officer', 'ops', 'risk'), asyncH(listAssignableUsers));
-router.get('/:id', asyncH(getAlert));
+router.get('/:id', requireRole('agent', 'field_officer', 'ops', 'risk'), asyncH(getAlert));
 router.delete('/', requireRole(...CASE_WORKERS), asyncH(clearAlerts)); // demo reset (bulk) — not part of the case workflow
 router.post('/:id/acknowledge', requireRole(...CASE_WORKERS), asyncH(acknowledge));
 router.post('/:id/assign', requireRole('field_officer', 'ops', 'risk'), asyncH(assign));

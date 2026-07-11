@@ -45,5 +45,9 @@ export default {
   top3Share: 'শীর্ষ ৩ অ্যাকাউন্টের অংশ', amountVariation: 'পরিমাণের তারতম্য',
   repeatedAmount: 'পুনরাবৃত্ত পরিমাণ', repeatCount: 'পুনরাবৃত্তির সংখ্যা', distinctAccounts: 'আলাদা অ্যাকাউন্ট', lastFeedUpdate: 'শেষ ফিড আপডেট', feedAge: 'ফিডের বয়স',
   expectedBalance: 'প্রত্যাশিত ব্যালেন্স', reportedBalance: 'রিপোর্ট করা ব্যালেন্স', difference: 'পার্থক্য', minute: 'মিনিট', minutes: 'মিনিট', notAvailable: 'পাওয়া যায়নি',
+  decisionMethod: 'সিদ্ধান্তের পদ্ধতি', modelRiskScore: 'এমএল ঝুঁকি স্কোর', reviewThreshold: 'পর্যালোচনার সীমা', dataConfidence: 'ডেটার আস্থা', notRecorded: 'এই সতর্কতার জন্য সংরক্ষিত নেই', modelUnavailable: 'এমএল অনুপলব্ধ',
+  decisionCriticalOverride: 'গুরুতর নিরাপত্তা নিয়মের অগ্রাধিকার', decisionModelRuleAgreement: 'মডেল ও নিয়ম একই ফল দেখাচ্ছে', decisionModelOnly: 'মডেলভিত্তিক সিদ্ধান্ত', decisionRuleOnly: 'নিয়মভিত্তিক সিদ্ধান্ত', decisionHybrid: 'এমএল ও নিয়মের সংকেত', decisionNoSignal: 'কোনো সিদ্ধান্ত সংকেত নেই',
+  visibleProviderTotal: 'দৃশ্যমান প্রোভাইডার সীমার মোট', managementOverview: 'ম্যানেজমেন্ট সারসংক্ষেপ', areaReadiness: 'এলাকার প্রস্তুতি', openAlerts: 'খোলা সতর্কতা', criticalAlerts: 'গুরুতর সতর্কতা', recurringPatterns: 'পুনরাবৃত্ত ধরন', readinessReady: 'প্রস্তুত', readinessAttention: 'মনোযোগ প্রয়োজন', readinessCritical: 'গুরুতর',
+  peerComparison: 'এলাকাভিত্তিক তুলনা', openAlertsPerAgent: 'প্রতি এজেন্টে খোলা সতর্কতা', serviceStatus: 'সেবার অবস্থা', serviceStatusNote: 'এলাকাভিত্তিক প্রোভাইডার সেবার সংকেত। এই পাতায় ব্যালেন্স, লেনদেন বা ব্যক্তিগত তথ্য দেখানো হয় না।', serviceNormal: 'স্বাভাবিকভাবে চালু', serviceWatch: 'সেবা পর্যবেক্ষণে', serviceLimited: 'সেবা সীমিত হতে পারে',
   normalEidDemand: 'ঈদ-পূর্ব ক্যাশ-আউটের চাহিদা', normalSalarySpike: 'বেতনের দিনের চাপ', normalFeedIssue: 'প্রোভাইডার ফিড বিলম্ব বা ডেটা-মানের সমস্যা',
 };

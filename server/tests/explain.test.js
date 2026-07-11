@@ -45,3 +45,18 @@ test('liquidity templates avoid a top-up when current headroom is sufficient', a
   });
   assert.match(ex.recommendedNextStep_en, /monitor closely/i);
 });
+
+test('repeated-amount alerts name the exact pattern and role-safe review action', async () => {
+  delete process.env.OPENAI_API_KEY;
+  const ex = await generateExplanation({
+    subtype: 'repeated_amount',
+    confidence: 0.93,
+    evidence: {
+      provider: 'bKash', amount: 9883, amountMin: 9800, amountMax: 10000,
+      repeatCount: 6, distinctAccounts: 3, windowMinutes: 30,
+    },
+  });
+
+  assert.match(ex.message_en, /6 cash-outs between .*9,800.*10,000.*only 3 account.*30 minutes/i);
+  assert.match(ex.recommendedNextStep_en, /6 listed transactions with provider operations or risk staff/i);
+});

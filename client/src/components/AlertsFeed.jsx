@@ -19,7 +19,8 @@ export default function AlertsFeed({ alerts = [], compact = false, highlightedAl
   const [expandedId, setExpandedId] = useState(null);
   const visibleAlerts = alerts.filter((alert) => !removedIds.has(alert.alertId));
   const highlighted = new Set(highlightedAlertIds);
-  const canDismiss = ['agent', 'field_officer', 'ops', 'risk'].includes(user?.role);
+  const canDismiss = (alert) => user?.role === 'agent'
+    || (user?.role === alert.routedToRole && (!alert.ownerUserId || !user.id || alert.ownerUserId === user.id));
 
   async function dismiss(alertId) {
     if (!window.confirm(t.dismissConfirm)) return;
@@ -66,7 +67,7 @@ export default function AlertsFeed({ alerts = [], compact = false, highlightedAl
             >
               {expandedId === a.alertId ? t.hideExplanation : t.whyThisAlert}
             </button>
-            {canDismiss && ['new', 'acknowledged'].includes(a.status) && (
+            {canDismiss(a) && ['new', 'acknowledged'].includes(a.status) && (
               <button className="danger" disabled={deletingId === a.alertId} onClick={() => dismiss(a.alertId)}>
                 {deletingId === a.alertId ? t.deleting : t.dismiss}
               </button>

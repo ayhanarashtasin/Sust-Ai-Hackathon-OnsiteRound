@@ -27,6 +27,8 @@ async function request(path, options = {}) {
 export const api = {
   login: (email, password) => request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
   agents: () => request('/agents'),
+  managementOverview: () => request('/agents/management-overview'),
+  publicServiceStatus: () => request('/public/service-status'),
   agent: (id) => request(`/agents/${id}`),
   transactions: (id, params = '') => request(`/agents/${id}/transactions${params}`),
   forecast: (id) => request(`/agents/${id}/forecast`),

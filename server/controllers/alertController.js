@@ -1,6 +1,7 @@
 import Alert from '../models/Alert.js';
 import User from '../models/User.js';
-import { validateAction, ASSIGNABLE_ROLES } from '../services/caseWorkflow.js';
+import { validateAction, hasCaseAuthority, ASSIGNABLE_ROLES } from '../services/caseWorkflow.js';
+import { notifyDataUpdate } from '../services/liveUpdates.js';
 
 /*
   Coordination lifecycle (Scenario D). Every transition is recorded in history[]
@@ -72,6 +73,7 @@ export async function clearAlerts(req, res) {
   if (req.query.agentId) q.agentId = req.query.agentId;
   Object.assign(q, visibilityScope(req.user));
   const { deletedCount } = await Alert.deleteMany(q);
+  notifyDataUpdate();
   res.json({ deleted: true, deletedCount, simulated: true });
 }
 
@@ -85,12 +87,16 @@ async function transition(req, res, { action, status, note, extra = {}, targetRo
 
   const verdict = validateAction({ action, role: req.user.role, currentStatus: alert.status, targetRole });
   if (!verdict.ok) return res.status(verdict.code).json({ error: verdict.error });
+  if (!hasCaseAuthority({ action, user: req.user, alert })) {
+    return res.status(403).json({ error: 'Case is routed to another role or owner' });
+  }
 
   Object.assign(alert, extra);
   if (status) alert.status = status;
   if (status === 'resolved') alert.resolvedAt = new Date();
   alert.history.push(historyEntry(req, action, note || req.body?.note || ''));
   await alert.save();
+  notifyDataUpdate();
   res.json({ alert, simulated: true });
 }
 
@@ -98,7 +104,10 @@ export const acknowledge = (req, res) =>
   transition(req, res, {
     action: 'acknowledge',
     status: 'acknowledged',
-    extra: { ownerUserId: req.user.id, ownerName: req.user.name || null, acknowledgedAt: new Date() },
+    // An outlet acknowledgement confirms receipt without taking ownership from the routed team.
+    extra: req.user.role === 'agent'
+      ? { acknowledgedAt: new Date() }
+      : { ownerUserId: req.user.id, ownerName: req.user.name || null, acknowledgedAt: new Date() },
   });
 
 /* Assignment targets must be real, case-working users — no arbitrary IDs. */
@@ -116,6 +125,12 @@ export async function assign(req, res) {
   }
   const alert = await Alert.findOne({ alertId: req.params.id, ...visibilityScope(req.user) }).lean();
   if (!alert) return res.status(404).json({ error: 'Alert not found' });
+  if (!hasCaseAuthority({ action: 'assign', user: req.user, alert })) {
+    return res.status(403).json({ error: 'Case is routed to another role or owner' });
+  }
+  if (target.role !== alert.routedToRole) {
+    return res.status(400).json({ error: `Assignee must have the routed role: ${alert.routedToRole}` });
+  }
   if (target.role === 'field_officer' && target.area && target.area !== alert.area) {
     return res.status(400).json({ error: 'Assignee is outside the alert area' });
   }
@@ -136,7 +151,7 @@ export const escalate = (req, res) => {
     action: 'escalate',
     status: 'escalated',
     note: req.body?.note || `escalated to ${toRole} — authorized support request`,
-    extra: { routedToRole: toRole, escalatedAt: new Date() },
+    extra: { routedToRole: toRole, ownerUserId: null, ownerName: null, escalatedAt: new Date() },
     targetRole: toRole,
   });
 };

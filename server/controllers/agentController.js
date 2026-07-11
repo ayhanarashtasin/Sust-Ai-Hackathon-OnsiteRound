@@ -1,4 +1,5 @@
 import Agent from '../models/Agent.js';
+import Alert from '../models/Alert.js';
 import Transaction from '../models/Transaction.js';
 import { forecastAgent } from '../services/forecast.js';
 import { providerDataIssues } from '../services/dataQuality.js';
@@ -9,8 +10,7 @@ import { providerDataIssues } from '../services/dataQuality.js';
   URL gets a 404, not the data.
     agent         → own outlet only
     field_officer → agents in own area
-    ops           → all areas
-    risk/management → read across (risk works escalations; management read-only)
+     ops           → all areas, optionally restricted to provider scope
 */
 function scopeFilter(user) {
   if (user.role === 'agent') return { agentId: user.agentId };
@@ -39,12 +39,51 @@ function allowedProviders(user) {
 function agentForUser(agent, user) {
   const allowed = allowedProviders(user);
   if (!allowed) return agent;
-  return { ...agent, providers: (agent.providers || []).filter((provider) => allowed.includes(provider.provider)) };
+  const feedEntries = agent.lastFeedAt instanceof Map ? [...agent.lastFeedAt.entries()] : Object.entries(agent.lastFeedAt || {});
+  return {
+    ...agent,
+    providers: (agent.providers || []).filter((provider) => allowed.includes(provider.provider)),
+    lastFeedAt: Object.fromEntries(feedEntries.filter(([provider]) => allowed.includes(provider))),
+    providerScopeRestricted: true,
+  };
+}
+
+export function buildManagementOverview(agents, alerts) {
+  const rows = new Map();
+  const rowFor = (area) => {
+    if (!rows.has(area)) rows.set(area, { area, agentCount: 0, openAlerts: 0, criticalAlerts: 0, recurring: new Map() });
+    return rows.get(area);
+  };
+
+  for (const agent of agents) rowFor(agent.area).agentCount++;
+  for (const alert of alerts) {
+    const row = rowFor(alert.area);
+    if (!['resolved', 'dismissed'].includes(alert.status)) row.openAlerts++;
+    if (!['resolved', 'dismissed'].includes(alert.status) && alert.severity === 'critical') row.criticalAlerts++;
+    row.recurring.set(alert.subtype, (row.recurring.get(alert.subtype) || 0) + 1);
+  }
+
+  const areas = [...rows.values()].map(({ recurring, ...row }) => ({
+    ...row,
+    readiness: row.criticalAlerts ? 'critical' : row.openAlerts ? 'attention' : 'ready',
+  })).sort((left, right) => right.criticalAlerts - left.criticalAlerts || right.openAlerts - left.openAlerts || left.area.localeCompare(right.area));
+  const recurring = [...rows.values()].flatMap((row) => [...row.recurring.entries()].map(([subtype, count]) => ({ area: row.area, subtype, count })))
+    .filter((item) => item.count > 1)
+    .sort((left, right) => right.count - left.count || left.area.localeCompare(right.area));
+  return { areas, recurring };
 }
 
 export async function listAgents(req, res) {
   const agents = await Agent.find(scopeFilter(req.user)).lean();
   res.json({ agents: agents.map((agent) => agentForUser(agent, req.user)), simulated: true });
+}
+
+export async function getManagementOverview(_req, res) {
+  const [agents, alerts] = await Promise.all([
+    Agent.find({}, 'area').lean(),
+    Alert.find({}, 'area subtype severity status').lean(),
+  ]);
+  res.json({ overview: buildManagementOverview(agents, alerts), simulated: true });
 }
 
 async function loadAgentAnalytics(agent, now = new Date()) {
@@ -101,7 +140,7 @@ export async function getForecast(req, res) {
   const { txnsByProvider, issuesByProvider, cashIssues, findings } = await loadAgentAnalytics(agent, now);
   const allowed = allowedProviders(req.user);
   const forecasts = forecastAgent(agent, txnsByProvider, now, issuesByProvider, cashIssues)
-    .filter((forecast) => forecast.resource === 'cash' || !allowed || allowed.includes(forecast.provider));
+    .filter((forecast) => !allowed || allowed.includes(forecast.provider));
   const visibleIssues = allowed
     ? Object.fromEntries(Object.entries(issuesByProvider).filter(([provider]) => allowed.includes(provider)))
     : issuesByProvider;
@@ -110,7 +149,7 @@ export async function getForecast(req, res) {
     issuesByProvider: visibleIssues,
     staleProviders: Object.keys(visibleIssues),
     dataQualityWarnings: findings
-      .filter((finding) => finding.provider == null || !allowed || allowed.includes(finding.provider))
+      .filter((finding) => !allowed || allowed.includes(finding.provider))
       .map((f) => ({ subtype: f.subtype, ...f.evidence })),
     simulated: true,
   });

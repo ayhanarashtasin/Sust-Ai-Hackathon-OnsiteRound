@@ -45,5 +45,9 @@ export default {
   top3Share: 'Top 3 account er share', amountVariation: 'Amount variation',
   repeatedAmount: 'Repeated amount', repeatCount: 'Repeat count', distinctAccounts: 'Distinct accounts', lastFeedUpdate: 'Last feed update', feedAge: 'Feed age',
   expectedBalance: 'Expected balance', reportedBalance: 'Reported balance', difference: 'Difference', minute: 'minute', minutes: 'minutes', notAvailable: 'Available nai',
+  decisionMethod: 'Decision method', modelRiskScore: 'ML risk score', reviewThreshold: 'Review threshold', dataConfidence: 'Data confidence', notRecorded: 'Ei alert er jonno record kora hoy nai', modelUnavailable: 'ML unavailable',
+  decisionCriticalOverride: 'Critical safety rule override', decisionModelRuleAgreement: 'Model ar rule ekoi result dekhaiche', decisionModelOnly: 'Model-based decision', decisionRuleOnly: 'Rule-based decision', decisionHybrid: 'ML ar rule signal', decisionNoSignal: 'Kono decision signal nai',
+  visibleProviderTotal: 'Visible provider scope total', managementOverview: 'Management overview', areaReadiness: 'Area readiness', openAlerts: 'Open alerts', criticalAlerts: 'Critical alerts', recurringPatterns: 'Recurring patterns', readinessReady: 'Ready', readinessAttention: 'Attention dorkar', readinessCritical: 'Critical',
+  peerComparison: 'Area peer comparison', openAlertsPerAgent: 'Open alerts per agent', serviceStatus: 'Service status', serviceStatusNote: 'Area onujayi provider service signal. Ei page e balance, transaction, ba personal information dekhano hoy na.', serviceNormal: 'Normal bhabe cholche', serviceWatch: 'Service monitor kora hocche', serviceLimited: 'Service limited hote pare',
   normalEidDemand: 'Pre-Eid cash-out demand', normalSalarySpike: 'Salary-day spike', normalFeedIssue: 'Provider feed delay ba data-quality issue',
 };

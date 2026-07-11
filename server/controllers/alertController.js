@@ -17,10 +17,15 @@ import { validateAction, ASSIGNABLE_ROLES } from '../services/caseWorkflow.js';
   to another outlet's case returns 404.
 */
 function visibilityScope(user) {
-  if (user.role === 'agent') return { agentId: user.agentId };
-  if (user.role === 'field_officer') return { area: user.area };
-  if (user.role === 'risk') return { status: { $in: ['escalated', 'resolved'] } };
-  return {};
+  const scope = {};
+  if (user.role === 'agent') scope.agentId = user.agentId;
+  if (user.role === 'field_officer') scope.area = user.area;
+  if (user.role === 'risk') scope.status = { $in: ['escalated', 'resolved'] };
+  if (user.role === 'ops' && !user.providerScope?.includes('all')) {
+    const providers = (user.providerScope || []).filter((provider) => ['bKash', 'Nagad', 'Rocket'].includes(provider));
+    scope.provider = { $in: [...providers, null] };
+  }
+  return scope;
 }
 
 function historyEntry(req, action, note = '') {
@@ -28,13 +33,15 @@ function historyEntry(req, action, note = '') {
 }
 
 export async function listAlerts(req, res) {
-  const { status, provider, area, kind, agentId } = req.query;
+  const { status, provider, area, kind, agentId, riskBand, decisionSource } = req.query;
   const q = {};
   if (status) q.status = { $in: status.split(',') };
   if (provider) q.provider = provider;
   if (area) q.area = area;
   if (kind) q.kind = kind;
   if (agentId) q.agentId = agentId;
+  if (riskBand) q.riskBand = riskBand;
+  if (decisionSource) q.decisionSource = decisionSource;
   Object.assign(q, visibilityScope(req.user)); // boundary wins over query params
   const alerts = await Alert.find(q).sort({ severity: -1, updatedAt: -1 }).limit(100).lean();
   res.json({ alerts, simulated: true });
@@ -91,7 +98,7 @@ export const acknowledge = (req, res) =>
   transition(req, res, {
     action: 'acknowledge',
     status: 'acknowledged',
-    extra: { ownerUserId: req.user.id, ownerName: req.user.name || null },
+    extra: { ownerUserId: req.user.id, ownerName: req.user.name || null, acknowledgedAt: new Date() },
   });
 
 /* Assignment targets must be real, case-working users — no arbitrary IDs. */
@@ -107,6 +114,14 @@ export async function assign(req, res) {
   if (!target || !ASSIGNABLE_ROLES.includes(target.role)) {
     return res.status(400).json({ error: `Assignee must be an existing user with role: ${ASSIGNABLE_ROLES.join(', ')}` });
   }
+  const alert = await Alert.findOne({ alertId: req.params.id, ...visibilityScope(req.user) }).lean();
+  if (!alert) return res.status(404).json({ error: 'Alert not found' });
+  if (target.role === 'field_officer' && target.area && target.area !== alert.area) {
+    return res.status(400).json({ error: 'Assignee is outside the alert area' });
+  }
+  if (target.role === 'ops' && alert.provider && !target.providerScope?.includes('all') && !target.providerScope?.includes(alert.provider)) {
+    return res.status(400).json({ error: 'Assignee is outside the alert provider scope' });
+  }
   return transition(req, res, {
     action: 'assign',
     status: 'in_progress',
@@ -121,13 +136,17 @@ export const escalate = (req, res) => {
     action: 'escalate',
     status: 'escalated',
     note: req.body?.note || `escalated to ${toRole} — authorized support request`,
-    extra: { routedToRole: toRole },
+    extra: { routedToRole: toRole, escalatedAt: new Date() },
     targetRole: toRole,
   });
 };
 
-export const resolve = (req, res) =>
-  transition(req, res, { action: 'resolve', status: 'resolved' });
+export const resolve = (req, res) => {
+  const note = String(req.body?.note || 'Resolved after human review').trim();
+  return transition(req, res, {
+    action: 'resolve', status: 'resolved', note, extra: { resolutionNote: note },
+  });
+};
 
 export const addNote = (req, res) =>
   transition(req, res, { action: 'note', note: req.body?.note || '' });

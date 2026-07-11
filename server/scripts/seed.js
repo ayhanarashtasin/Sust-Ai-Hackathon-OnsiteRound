@@ -5,6 +5,7 @@ import User from '../models/User.js';
 import Agent from '../models/Agent.js';
 import Transaction from '../models/Transaction.js';
 import Alert from '../models/Alert.js';
+import Prediction from '../models/Prediction.js';
 import mongoose from 'mongoose';
 import { generateSeedData } from './lib/generateSeedData.js';
 
@@ -20,7 +21,7 @@ const SEED = Number(process.env.SEED || 20260711);
 
 async function seed() {
   await connectDB();
-  await Promise.all([User.deleteMany({}), Agent.deleteMany({}), Transaction.deleteMany({}), Alert.deleteMany({})]);
+  await Promise.all([User.deleteMany({}), Agent.deleteMany({}), Transaction.deleteMany({}), Alert.deleteMany({}), Prediction.deleteMany({})]);
   console.log(`[seed] cleared collections (PRNG seed: ${SEED})`);
 
   const data = generateSeedData({ seed: SEED });

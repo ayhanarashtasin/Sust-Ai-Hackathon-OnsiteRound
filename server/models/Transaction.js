@@ -10,11 +10,19 @@ const transactionSchema = new mongoose.Schema(
       enum: ['cash_in', 'cash_out', 'send_money', 'payment', 'b2b_topup'],
       required: true,
     },
-    amount: { type: Number, required: true },
+    amount: {
+      type: Number,
+      required: true,
+      min: 0.01,
+      validate: { validator: Number.isFinite, message: 'amount must be finite' },
+    },
     status: { type: String, enum: ['success', 'failed', 'pending'], default: 'success' },
     failureReason: { type: String, enum: ['insufficient_funds', 'provider_error', null], default: null },
     customerHash: { type: String, required: true }, // synthetic anonymized id — NOT a real identity
     timestamp: { type: Date, required: true },
+    dataReceivedAt: { type: Date, default: Date.now },
+    area: { type: String, default: '' },
+    eventFlag: { type: String, enum: ['none', 'salary_day', 'eid', 'local_event'], default: 'none' },
     balanceAfter: {
       cash: Number,
       emoney: Number,
@@ -26,5 +34,6 @@ const transactionSchema = new mongoose.Schema(
 
 // Window scans run on every sim tick — this index keeps them off table scans.
 transactionSchema.index({ agentId: 1, provider: 1, timestamp: -1 });
+transactionSchema.index({ agentId: 1, timestamp: -1 });
 
 export default mongoose.model('Transaction', transactionSchema);

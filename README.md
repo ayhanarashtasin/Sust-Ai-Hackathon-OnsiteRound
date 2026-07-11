@@ -57,7 +57,7 @@ Log in (password `demo1234` for all):
 
 ```bash
 cd server
-npm test                # 40 unit tests: engines, safe fallback, money integrity,
+npm test                # 50 unit tests: engines, safe fallback, money integrity,
                         # case state machine, language guard, Scenario B contrast
 npm run validate        # 5 seeded, reproducible metrics (in-memory, no DB needed)
 npm run validate:report # also writes docs/validation-report.md
@@ -69,8 +69,9 @@ Latest seeded run (seed 20260711 — full report with methodology in
 [`docs/validation-report.md`](docs/validation-report.md)): anomaly precision
 93.8%, recall 100%, false-positive rate 6.7% on scenario-labeled normal windows
 (dominant FP source documented), median shortage lead time 79 min on a
-deliberately non-linear drain, explanation coverage 100% (8/8 subtypes × 9
-trilingual fields), HTTP forecast p95 3.6 ms (local MongoDB).
+deliberately non-linear drain, explanation coverage 100% (10/10 subtypes × 9
+trilingual fields), HTTP forecast p95 3.6 ms (local MongoDB; a remote Atlas
+cluster adds network RTT — see the validation report).
 
 Validation labels come from behavioral scenarios, **not** the detector's own
 thresholds — see the report for why that matters.

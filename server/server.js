@@ -8,6 +8,7 @@ import authRoutes from './routes/authRoutes.js';
 import agentRoutes from './routes/agentRoutes.js';
 import alertRoutes from './routes/alertRoutes.js';
 import simRoutes from './routes/simRoutes.js';
+import modelRoutes from './routes/modelRoutes.js';
 
 /*
   MVC layout:
@@ -48,6 +49,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/agents', agentRoutes);
 app.use('/api/alerts', alertRoutes);
 app.use('/api/sim', simRoutes);
+app.use('/api/models', modelRoutes);
 
 // Central error handler — log details server-side (with the request id), return
 // a generic message: internal exception text never reaches clients.

@@ -1,0 +1,52 @@
+{
+  "generatedAt": "2026-07-11T18:18:07.605Z",
+  "seed": 20260711,
+  "agentCount": 26,
+  "holdoutAgents": 4,
+  "days": 30,
+  "slotMinutes": 15,
+  "lookbackDays": 3,
+  "rows": 196992,
+  "featureSchemaVersion": "1.0.0",
+  "transactions": 508916,
+  "reviewErrorRates": {
+    "missed": 0.05,
+    "overFlagged": 0.005
+  },
+  "labels": {
+    "liquidity": "shared cash or provider e-money reaches its critical threshold within the next 60 minutes (from realized stochastic demand)",
+    "anomaly": "unusual activity requiring human review (structuring / velocity / concentration / off-hours high value)"
+  },
+  "splits": {
+    "train": {
+      "n": 114048,
+      "liq": 6321,
+      "ano": 2270
+    },
+    "validation": {
+      "n": 38016,
+      "liq": 2411,
+      "ano": 754
+    },
+    "test": {
+      "n": 44928,
+      "liq": 2442,
+      "ano": 881
+    }
+  },
+  "positiveRate": {
+    "liquidity": 0.0567,
+    "anomaly": 0.0198
+  },
+  "design": [
+    "Liquidity labels are the realized future, not a scenario flag => uncertain given current features.",
+    "Anomalies use diverse, varied signatures that overlap with legitimate Eid/salary surges.",
+    "Label noise simulates human-review disagreement; data-quality noise is label-independent.",
+    "Holdout agents appear only in the test period for genuine unseen-agent evaluation."
+  ],
+  "limitations": [
+    "Synthetic data only",
+    "Scenario identity is excluded from model features",
+    "No real customer identities or provider accounts"
+  ]
+}

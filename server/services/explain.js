@@ -125,6 +125,30 @@ export function templateExplanation(finding) {
         recommendedNextStep_bn: `এই ব্যালেন্সের ওপর নির্ভর করার আগে প্রোভাইডারের অপারেশনস টিমের সাথে যাচাই করুন।`,
         recommendedNextStep_banglish: `Ei balance er upor nirbhor korar age provider er operations team er sathe verify korun.`,
       };
+    case 'model_liquidity_risk':
+      return {
+        title_en: `${e.provider} may face liquidity pressure — review required`,
+        title_bn: `${e.provider}-এ লিকুইডিটি চাপ হতে পারে — পর্যালোচনা প্রয়োজন`,
+        title_banglish: `${e.provider}-e liquidity pressure hote pare — review dorkar`,
+        message_en: `The tabular liquidity model identified elevated pressure for ${e.provider}. Risk: ${Math.round((e.riskScore || 0) * 100)}%. This is advisory and requires human review.`,
+        message_bn: `ট্যাবুলার লিকুইডিটি মডেল ${e.provider}-এর জন্য বেশি চাপ শনাক্ত করেছে। ঝুঁকি: ${Math.round((e.riskScore || 0) * 100)}%। এটি পরামর্শমূলক এবং মানব পর্যালোচনা প্রয়োজন।`,
+        message_banglish: `Tabular liquidity model ${e.provider} er jonno beshi pressure dekheche. Risk: ${Math.round((e.riskScore || 0) * 100)}%. Eta advisory, human review dorkar.`,
+        recommendedNextStep_en: `Review provider balance, shared cash, and approved support options before taking action.`,
+        recommendedNextStep_bn: `কোনো পদক্ষেপের আগে প্রোভাইডার ব্যালেন্স, শেয়ার্ড নগদ এবং অনুমোদিত সহায়তা বিকল্প পর্যালোচনা করুন।`,
+        recommendedNextStep_banglish: `Action neyar age provider balance, shared cash ar approved support option review korun.`,
+      };
+    case 'model_unusual_review':
+      return {
+        title_en: `${e.provider} activity requires review`,
+        title_bn: `${e.provider}-এর কার্যক্রম পর্যালোচনা প্রয়োজন`,
+        title_banglish: `${e.provider} activity review dorkar`,
+        message_en: `The tabular unusual-activity model identified a pattern that requires review. Risk: ${Math.round((e.riskScore || 0) * 100)}%. It may still reflect legitimate demand or a data issue.`,
+        message_bn: `ট্যাবুলার অস্বাভাবিক-কার্যক্রম মডেল এমন একটি ধরন শনাক্ত করেছে যার পর্যালোচনা প্রয়োজন। ঝুঁকি: ${Math.round((e.riskScore || 0) * 100)}%। এটি বৈধ চাহিদা বা ডেটা সমস্যাও হতে পারে।`,
+        message_banglish: `Tabular unusual-activity model emon pattern dekheche jar review dorkar. Risk: ${Math.round((e.riskScore || 0) * 100)}%. Eta legitimate demand ba data issue o hote pare.`,
+        recommendedNextStep_en: `Review the evidence with operations or risk staff before any major response.`,
+        recommendedNextStep_bn: `বড় কোনো প্রতিক্রিয়ার আগে অপারেশনস বা রিস্ক টিমের সাথে প্রমাণ পর্যালোচনা করুন।`,
+        recommendedNextStep_banglish: `Boro response er age operations ba risk team er sathe evidence review korun.`,
+      };
     default:
       return {
         title_en: 'Alert requires review', title_bn: 'পর্যালোচনা প্রয়োজন', title_banglish: 'Review dorkar',

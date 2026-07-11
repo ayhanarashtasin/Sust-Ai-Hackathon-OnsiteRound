@@ -39,7 +39,10 @@ export function computeForecast({
   const suppressed = issues.length > 0;
 
   const windowStart = new Date(now.getTime() - WINDOW_MIN * 60_000);
-  const windowTxns = txns.filter((t) => t.timestamp >= windowStart && t.status === 'success');
+  const windowTxns = txns.filter((t) => {
+    const timestamp = new Date(t.timestamp);
+    return timestamp >= windowStart && timestamp <= now && t.status === 'success';
+  });
 
   let netFlow = 0;
   const rates = []; // per-5-min-bucket flow, for volatility
@@ -60,13 +63,27 @@ export function computeForecast({
     return Math.max(0.1, Math.round(c * 100) / 100);
   };
 
+  // Already below the safe floor is critical even when no recent drain exists.
+  if (currentBalance <= floorThreshold) {
+    const gap = Math.max(0, floorThreshold - currentBalance);
+    return {
+      resource, provider, currentBalance, floorThreshold,
+      burnRatePerMin: Math.round(burnRatePerMin), sampleSize: windowTxns.length,
+      status: 'critical', timeToDepletionMin: 0, projectedDepletionAt: now,
+      suggestedTopUp: suppressed ? 0 : Math.ceil(gap / 1000) * 1000,
+      confidence: applyIssuePenalties(windowTxns.length < 10 ? 0.6 : 0.9), windowMin: WINDOW_MIN,
+      recommendationSuppressed: suppressed, dataIssues: issues,
+      criticalThresholdMin: CRITICAL_DEPLETION_MIN, warningThresholdMin: WARNING_DEPLETION_MIN,
+    };
+  }
+
   // Zero-burn guard: no drain => stable, no depletion projection (kills divide-by-zero).
   if (burnRatePerMin <= 0) {
     return {
       resource, provider, currentBalance, floorThreshold,
       burnRatePerMin: 0, sampleSize: windowTxns.length,
       status: 'stable', timeToDepletionMin: null, projectedDepletionAt: null,
-      suggestedTopUp: 0, confidence: applyIssuePenalties(0.9), windowMin: WINDOW_MIN,
+      suggestedTopUp: 0, confidence: applyIssuePenalties(windowTxns.length < 10 ? 0.6 : 0.9), windowMin: WINDOW_MIN,
       recommendationSuppressed: suppressed, dataIssues: issues,
       criticalThresholdMin: CRITICAL_DEPLETION_MIN, warningThresholdMin: WARNING_DEPLETION_MIN,
     };
@@ -108,11 +125,11 @@ export function computeForecast({
   issuesByProvider: { [provider]: ['stale_feed' | 'missing_feed' | 'balance_mismatch'] }
   Shared cash mixes every provider's flow, so it inherits the union of all issues.
 */
-export function forecastAgent(agent, txnsByProvider, now = new Date(), issuesByProvider = {}) {
+export function forecastAgent(agent, txnsByProvider, now = new Date(), issuesByProvider = {}, cashDataIssues = []) {
   const allTxns = Object.values(txnsByProvider).flat();
   const results = [];
 
-  const cashIssues = [...new Set(Object.values(issuesByProvider).flat())];
+  const cashIssues = [...new Set([...Object.values(issuesByProvider).flat(), ...cashDataIssues])];
   results.push(
     computeForecast({
       resource: 'cash', provider: null,

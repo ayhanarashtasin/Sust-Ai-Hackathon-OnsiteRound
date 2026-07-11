@@ -8,6 +8,9 @@ import BalanceHero from '../components/BalanceHero.jsx';
 import ForecastPanel from '../components/ForecastPanel.jsx';
 import AlertsFeed from '../components/AlertsFeed.jsx';
 import LiveStatus from '../components/LiveStatus.jsx';
+import RiskConfidence from '../components/RiskConfidence.jsx';
+import DecisionSummary from '../components/DecisionSummary.jsx';
+import ModelStatus from '../components/ModelStatus.jsx';
 
 /*
   The demo spine page: unified balances + forecast + live alerts + "Eid rush" control.
@@ -28,6 +31,8 @@ export default function AgentDetail() {
   const { data: agentData, refresh: refreshAgent } = usePolling(() => api.agent(id), 3000, [id]);
   const { data: forecastData, error: forecastError, lastUpdated, refresh: refreshForecast } = usePolling(() => api.forecast(id), 3000, [id]);
   const { data: alertsData, refresh: refreshAlerts } = usePolling(() => api.alerts(`?agentId=${id}&status=new,acknowledged,in_progress,escalated`), 3000, [id]);
+  const { data: decisionData, refresh: refreshDecision } = usePolling(() => api.decisionSupport(id), 3000, [id]);
+  const { data: modelData } = usePolling(() => api.modelStatus(), 10000, []);
 
   async function toggleSim() {
     if (simRunning) {
@@ -50,7 +55,7 @@ export default function AgentDetail() {
       setSimRunning(false);
       setStepCount(0);
       setTickResult(null);
-      await Promise.all([refreshAgent(), refreshForecast(), refreshAlerts()]);
+      await Promise.all([refreshAgent(), refreshForecast(), refreshAlerts(), refreshDecision()]);
     } catch (error) {
       window.alert(error.message);
     } finally {
@@ -66,7 +71,7 @@ export default function AgentDetail() {
       const { sim } = await api.simStep(id, scenario);
       setStepCount(sim.tickCount);
       setTickResult(sim);
-      await Promise.all([refreshAgent(), refreshForecast(), refreshAlerts()]);
+      await Promise.all([refreshAgent(), refreshForecast(), refreshAlerts(), refreshDecision()]);
     } finally {
       setStepping(false);
     }
@@ -76,6 +81,9 @@ export default function AgentDetail() {
   const issuesByProvider = forecastData?.issuesByProvider || {};
   const issueEntries = Object.entries(issuesByProvider);
   const canControl = ['agent', 'field_officer', 'ops', 'risk'].includes(user?.role);
+  const mainPressure = decisionData?.decisionSupport?.mainPressure;
+  const models = modelData?.models || [];
+  const unavailableModel = models.find((model) => !model.available);
 
   return (
     <div className="page">
@@ -125,13 +133,38 @@ export default function AgentDetail() {
         <ForecastPanel forecasts={forecastData?.forecasts || []} />
       </div>
 
+      <div className="grid cols-2">
+        <RiskConfidence
+          risk={mainPressure?.riskScore}
+          confidence={mainPressure?.confidenceScore}
+          riskBand={mainPressure?.riskBand}
+          reducedConfidenceReason={mainPressure?.fallbackReason || mainPressure?.dataFreshness?.note}
+        />
+        <DecisionSummary
+          pressure={mainPressure}
+          source={mainPressure ? { type: mainPressure.decisionSource, label: mainPressure.model?.type, version: mainPressure.model?.version } : null}
+          evidence={mainPressure?.evidence}
+          triggeredRules={mainPressure?.triggeredRules}
+          dataFreshness={mainPressure?.dataFreshness}
+          safeNextStep={mainPressure?.safeNextStep}
+        />
+      </div>
+
+      <ModelStatus
+        available={models.length > 0 ? models.every((model) => model.available) : undefined}
+        type={models.filter((model) => model.available).map((model) => model.modelType).filter(Boolean).join(', ')}
+        version={models.filter((model) => model.available).map((model) => model.modelVersion).filter(Boolean).join(', ')}
+        name="Offline tabular decision models"
+        fallbackReason={unavailableModel?.fallbackReason}
+      />
+
       <AlertsFeed
         alerts={alertsData?.alerts || []}
         highlightedAlertIds={tickResult?.alerts?.map((alert) => alert.alertId) || []}
         onDismiss={() => {
           setStepCount(0);
           setTickResult(null);
-          return Promise.all([refreshAgent(), refreshForecast(), refreshAlerts()]);
+          return Promise.all([refreshAgent(), refreshForecast(), refreshAlerts(), refreshDecision()]);
         }}
       />
     </div>

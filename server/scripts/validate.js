@@ -171,6 +171,8 @@ function coverageEval() {
     stale_feed: { provider: 'Rocket', ageMinutes: 22, thresholdMinutes: 10 },
     missing_feed: { provider: 'Rocket', lastFeedAt: null, thresholdMinutes: 10 },
     balance_mismatch: { provider: 'Rocket', expected: 51000, actual: 58777, deltaAbs: 7777, tolerance: 1 },
+    model_liquidity_risk: { provider: 'Nagad', riskScore: 0.82, confidenceScore: 0.7 },
+    model_unusual_review: { provider: 'bKash', riskScore: 0.77, confidenceScore: 0.7 },
   };
   let ok = 0;
   const total = Object.keys(cases).length;
@@ -259,7 +261,7 @@ do **not** count as review flags. The PRNG is seeded → every number below repr
 | 1 | Anomaly recall | ${(a.recall * 100).toFixed(1)}% (TP=${a.tp}, FN=${a.fn}) | ≥80% |
 | 2 | False-positive rate (normal scenarios) | ${(a.fpRate * 100).toFixed(1)}% (${a.fp}/${a.fp + a.tn}) | ≤10% |
 | 3 | Shortage lead time (non-linear drain) | median ${l.medianLeadMin} min, worst ${l.minLeadMin} min (${l.runs} runs) | ≥15 min |
-| 4 | Explanation coverage (8 subtypes × 9 trilingual fields) | ${(c.coverage * 100).toFixed(0)}% (${c.covered}/${c.total}) | 100% |
+| 4 | Explanation coverage (${c.total} subtypes × 9 trilingual fields) | ${(c.coverage * 100).toFixed(0)}% (${c.covered}/${c.total}) | 100% |
 | 5 | Engine latency (forecast + anomaly, in-memory) | p50 ${t.p50.toFixed(2)} ms · p95 ${t.p95.toFixed(2)} ms @ ${t.txnVolume} txns | p95 <300 ms |
 
 ### Per-scenario breakdown

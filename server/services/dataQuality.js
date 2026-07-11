@@ -1,4 +1,5 @@
 import { signedDelta } from './signedDelta.js';
+import { DECISION_CONFIG } from '../config/decisionConfig.js';
 
 /*
   Data-quality / safe-fallback engine (Scenario C).
@@ -13,7 +14,7 @@ import { signedDelta } from './signedDelta.js';
   providerDataIssues() is the single source of truth the forecast consumes:
   every issue both dims confidence and withholds the top-up recommendation.
 */
-export const STALE_MIN = 10;
+export const STALE_MIN = DECISION_CONFIG.dataFreshnessMin;
 const MISMATCH_TOLERANCE = 1; // BDT
 
 export function checkStaleFeeds(agent, now = new Date()) {
@@ -46,12 +47,29 @@ export function checkStaleFeeds(agent, now = new Date()) {
 }
 
 /* opening + Σ signedDelta must equal current (within tolerance) — else the feed conflicts. */
-export function checkBalanceMismatch(agent, txnsByProvider) {
+function atOrBefore(txns, now) {
+  return txns
+    .filter((txn) => new Date(txn.timestamp) <= now)
+    .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+}
+
+function startingBalance(txns, balanceKey, deltaKey, fallback) {
+  const firstWithSnapshot = txns.find((txn) => Number.isFinite(txn.balanceAfter?.[balanceKey]));
+  if (firstWithSnapshot) {
+    return firstWithSnapshot.balanceAfter[balanceKey] - signedDelta(firstWithSnapshot)[deltaKey];
+  }
+  return Number.isFinite(fallback) ? fallback : null;
+}
+
+export function checkBalanceMismatch(agent, txnsByProvider, now = new Date()) {
   const findings = [];
   for (const p of agent.providers) {
-    const txns = txnsByProvider[p.provider] || [];
+    const txns = atOrBefore(txnsByProvider[p.provider] || [], now);
+    const checkpoint = Number.isFinite(p.reconciliationBalance) ? p.reconciliationBalance : p.openingBalance;
+    const baseline = startingBalance(txns, 'emoney', 'emoney', checkpoint);
+    if (!Number.isFinite(baseline)) continue;
     const netFlow = txns.reduce((s, t) => s + signedDelta(t).emoney, 0);
-    const expected = p.openingBalance + netFlow;
+    const expected = baseline + netFlow;
     const deltaAbs = Math.abs(expected - p.emoneyBalance);
     if (deltaAbs > MISMATCH_TOLERANCE) {
       findings.push({
@@ -65,11 +83,35 @@ export function checkBalanceMismatch(agent, txnsByProvider) {
           actual: p.emoneyBalance,
           deltaAbs: Math.round(deltaAbs),
           tolerance: MISMATCH_TOLERANCE,
+          baselineSource: txns.some((txn) => Number.isFinite(txn.balanceAfter?.emoney)) ? 'window_snapshot' : 'checkpoint',
         },
       });
     }
   }
   return findings;
+}
+
+export function checkCashBalanceMismatch(agent, txnsByProvider, now = new Date()) {
+  const txns = atOrBefore(Object.values(txnsByProvider).flat(), now);
+  const checkpoint = Number.isFinite(agent.cashReconciliationBalance)
+    ? agent.cashReconciliationBalance
+    : agent.cashOpeningBalance;
+  const baseline = startingBalance(txns, 'cash', 'cash', checkpoint);
+  if (!Number.isFinite(baseline)) return [];
+  const expected = baseline + txns.reduce((sum, txn) => sum + signedDelta(txn).cash, 0);
+  const deltaAbs = Math.abs(expected - agent.cashBalance);
+  if (deltaAbs <= MISMATCH_TOLERANCE) return [];
+  return [{
+    subtype: 'balance_mismatch',
+    provider: null,
+    severity: 'warning',
+    confidence: 0.6,
+    evidence: {
+      resource: 'cash', expected: Math.round(expected), actual: agent.cashBalance,
+      deltaAbs: Math.round(deltaAbs), tolerance: MISMATCH_TOLERANCE,
+      baselineSource: txns.some((txn) => Number.isFinite(txn.balanceAfter?.cash)) ? 'window_snapshot' : 'checkpoint',
+    },
+  }];
 }
 
 /*
@@ -79,12 +121,18 @@ export function checkBalanceMismatch(agent, txnsByProvider) {
   which mixes every provider's flow).
 */
 export function providerDataIssues(agent, txnsByProvider, now = new Date()) {
-  const findings = [...checkStaleFeeds(agent, now), ...checkBalanceMismatch(agent, txnsByProvider)];
+  const findings = [
+    ...checkStaleFeeds(agent, now),
+    ...checkBalanceMismatch(agent, txnsByProvider, now),
+    ...checkCashBalanceMismatch(agent, txnsByProvider, now),
+  ];
   const issuesByProvider = {};
+  const cashIssues = [];
   for (const f of findings) {
-    (issuesByProvider[f.provider] ||= []).push(f.subtype);
+    if (f.provider == null) cashIssues.push(f.subtype);
+    else (issuesByProvider[f.provider] ||= []).push(f.subtype);
   }
-  return { issuesByProvider, findings };
+  return { issuesByProvider, cashIssues: [...new Set(cashIssues)], findings };
 }
 
 export function staleProviderSet(agent, now = new Date()) {

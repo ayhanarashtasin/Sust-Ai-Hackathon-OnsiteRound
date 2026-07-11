@@ -12,6 +12,7 @@
     "validate:report": "node scripts/validate.js --report",
     "latency": "node scripts/latency-http.js",
     "sample-data": "node scripts/generate-sample-data.js",
+    "ml:dataset": "node scripts/generate-ml-dataset.js",
     "test": "node --test",
     "test:coverage": "c8 --reporter=lcov --reporter=text node --test"
   },
@@ -21,7 +22,8 @@
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2",
-    "mongoose": "^8.5.1"
+    "mongoose": "^8.5.1",
+    "onnxruntime-node": "^1.27.0"
   },
   "devDependencies": {
     "c8": "^11.0.0"

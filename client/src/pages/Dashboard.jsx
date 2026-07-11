@@ -18,15 +18,19 @@ export default function Dashboard() {
   const [provider, setProvider] = useState('');
   const [kind, setKind] = useState('');
   const [status, setStatus] = useState('');
+  const [riskBand, setRiskBand] = useState('');
+  const [decisionSource, setDecisionSource] = useState('');
 
   const qs = new URLSearchParams();
   qs.set('status', status || OPEN_STATUSES);
   if (provider) qs.set('provider', provider);
   if (kind) qs.set('kind', kind);
+  if (riskBand) qs.set('riskBand', riskBand);
+  if (decisionSource) qs.set('decisionSource', decisionSource);
 
   const { data: agentsData, refresh: refreshAgents } = usePolling(() => api.agents(), 5000, []);
   const { data: alertsData, error: alertsError, lastUpdated, refresh: refreshAlerts } =
-    usePolling(() => api.alerts(`?${qs.toString()}`), 3000, [provider, kind, status]);
+    usePolling(() => api.alerts(`?${qs.toString()}`), 3000, [provider, kind, status, riskBand, decisionSource]);
 
   return (
     <div className="page">
@@ -47,6 +51,16 @@ export default function Dashboard() {
           {['new', 'acknowledged', 'in_progress', 'escalated', 'resolved', 'dismissed'].map((s) => (
             <option key={s} value={s}>{statusLabel(t, s)}</option>
           ))}
+        </select>
+        <span style={{ color: 'var(--dim)', fontSize: 13 }}>Risk:</span>
+        <select value={riskBand} onChange={(e) => setRiskBand(e.target.value)}>
+          <option value="">{t.all}</option>
+          {['low', 'medium', 'high', 'critical', 'unknown'].map((band) => <option key={band} value={band}>{band}</option>)}
+        </select>
+        <span style={{ color: 'var(--dim)', fontSize: 13 }}>Source:</span>
+        <select value={decisionSource} onChange={(e) => setDecisionSource(e.target.value)}>
+          <option value="">{t.all}</option>
+          {['hybrid', 'model', 'rules_only'].map((source) => <option key={source} value={source}>{source.replaceAll('_', ' ')}</option>)}
         </select>
         <span style={{ marginLeft: 'auto' }}><LiveStatus lastUpdated={lastUpdated} error={alertsError} /></span>
       </div>

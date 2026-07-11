@@ -1,0 +1,129 @@
+{
+  "candidates": {
+    "lightgbm": {
+      "metrics_at_0_5": {
+        "confusion_matrix": {
+          "fn": 185,
+          "fp": 351,
+          "tn": 36911,
+          "tp": 569
+        },
+        "f1": 0.6798088410991637,
+        "fnr": 0.2453580901856764,
+        "fpr": 0.009419784230583437,
+        "pr_auc": 0.7268213199414769,
+        "precision": 0.6184782608695653,
+        "recall": 0.7546419098143236,
+        "support": {
+          "negative": 37262,
+          "positive": 754
+        },
+        "threshold": 0.5
+      },
+      "parameters": {
+        "colsample_bytree": 1.0,
+        "deterministic": true,
+        "force_col_wise": true,
+        "learning_rate": 0.05,
+        "n_estimators": 300,
+        "n_jobs": 1,
+        "num_leaves": 31,
+        "objective": "binary",
+        "random_state": 20260711,
+        "reg_lambda": 1.0,
+        "scale_pos_weight": 49.241409691629954,
+        "subsample": 1.0,
+        "verbosity": -1
+      },
+      "status": "trained",
+      "validation_pr_auc": 0.7268213199414769
+    },
+    "xgboost": {
+      "metrics_at_0_5": {
+        "confusion_matrix": {
+          "fn": 188,
+          "fp": 162,
+          "tn": 37100,
+          "tp": 566
+        },
+        "f1": 0.7638326585695007,
+        "fnr": 0.2493368700265252,
+        "fpr": 0.004347592721807739,
+        "pr_auc": 0.7186081989542344,
+        "precision": 0.7774725274725275,
+        "recall": 0.7506631299734748,
+        "support": {
+          "negative": 37262,
+          "positive": 754
+        },
+        "threshold": 0.5
+      },
+      "parameters": {
+        "colsample_bytree": 1.0,
+        "eval_metric": "logloss",
+        "learning_rate": 0.05,
+        "max_depth": 6,
+        "min_child_weight": 1,
+        "n_estimators": 300,
+        "n_jobs": 1,
+        "objective": "binary:logistic",
+        "random_state": 20260711,
+        "reg_lambda": 1.0,
+        "scale_pos_weight": 49.241409691629954,
+        "subsample": 1.0,
+        "tree_method": "hist"
+      },
+      "status": "trained",
+      "validation_pr_auc": 0.7186081989542344
+    }
+  },
+  "champion": {
+    "model_type": "lightgbm",
+    "test": {
+      "confusion_matrix": {
+        "fn": 231,
+        "fp": 30,
+        "tn": 44017,
+        "tp": 650
+      },
+      "f1": 0.8327994875080077,
+      "fnr": 0.26220204313280365,
+      "fpr": 0.0006810906531659363,
+      "pr_auc": 0.7368128781135364,
+      "precision": 0.9558823529411765,
+      "recall": 0.7377979568671964,
+      "support": {
+        "negative": 44047,
+        "positive": 881
+      },
+      "threshold": 0.9705077101280501
+    },
+    "threshold": 0.9705077101280501,
+    "validation": {
+      "confusion_matrix": {
+        "fn": 204,
+        "fp": 50,
+        "tn": 37212,
+        "tp": 550
+      },
+      "f1": 0.8124076809453471,
+      "fnr": 0.27055702917771884,
+      "fpr": 0.0013418496054962159,
+      "pr_auc": 0.7268213199414769,
+      "precision": 0.9166666666666666,
+      "recall": 0.7294429708222812,
+      "support": {
+        "negative": 37262,
+        "positive": 754
+      },
+      "threshold": 0.9705077101280501
+    }
+  },
+  "metric_definition": {
+    "fnr": "FN / (FN + TP)",
+    "fpr": "FP / (FP + TN)",
+    "pr_auc": "sklearn average_precision_score"
+  },
+  "selection": "maximum validation PR-AUC; LightGBM wins exact ties",
+  "threshold_selection": "maximum validation F1; ties use recall, precision, then lower threshold"
+}

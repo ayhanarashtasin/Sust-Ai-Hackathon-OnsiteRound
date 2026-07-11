@@ -5,7 +5,16 @@ coverage/
 *.log
 .DS_Store
 .gstack/
-docs
-diagrams
-SPEC.md
-sonar-project.properties
+
+# Python build cruft (ML training only)
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Large, regenerable ML training dataset (regenerate with: npm run ml:dataset).
+# The manifest that describes it IS tracked (data/ml/manifest.json).
+data/ml/*.csv
+/.claude/
+/docs/
+/diagrams/
+/SPEC.md

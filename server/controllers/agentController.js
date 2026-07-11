@@ -31,14 +31,25 @@ function canonicalProvider(value) {
   return null;
 }
 
+function allowedProviders(user) {
+  if (user.role !== 'ops' || user.providerScope?.includes('all')) return null;
+  return (user.providerScope || []).map(canonicalProvider).filter(Boolean);
+}
+
+function agentForUser(agent, user) {
+  const allowed = allowedProviders(user);
+  if (!allowed) return agent;
+  return { ...agent, providers: (agent.providers || []).filter((provider) => allowed.includes(provider.provider)) };
+}
+
 export async function listAgents(req, res) {
   const agents = await Agent.find(scopeFilter(req.user)).lean();
-  res.json({ agents, simulated: true });
+  res.json({ agents: agents.map((agent) => agentForUser(agent, req.user)), simulated: true });
 }
 
 async function loadAgentAnalytics(agent, now = new Date()) {
   const since = new Date(now.getTime() - 6 * 60 * 60_000);
-  const txns = await Transaction.find({ agentId: agent.agentId, timestamp: { $gte: since } }).lean();
+  const txns = await Transaction.find({ agentId: agent.agentId, timestamp: { $gte: since, $lte: now } }).lean();
   const txnsByProvider = {};
   for (const p of agent.providers) txnsByProvider[p.provider] = [];
   for (const t of txns) (txnsByProvider[t.provider] ||= []).push(t);
@@ -49,7 +60,12 @@ export async function getAgent(req, res) {
   const agent = await findScopedAgent(req);
   if (!agent) return res.status(404).json({ error: 'Agent not found' });
   const { issuesByProvider } = await loadAgentAnalytics(agent);
-  res.json({ agent: agent.toObject(), issuesByProvider, staleProviders: Object.keys(issuesByProvider), simulated: true });
+  const visible = agentForUser(agent.toObject(), req.user);
+  const allowed = allowedProviders(req.user);
+  const visibleIssues = allowed
+    ? Object.fromEntries(Object.entries(issuesByProvider).filter(([provider]) => allowed.includes(provider)))
+    : issuesByProvider;
+  res.json({ agent: visible, issuesByProvider: visibleIssues, staleProviders: Object.keys(visibleIssues), simulated: true });
 }
 
 export async function getTransactions(req, res) {
@@ -60,9 +76,15 @@ export async function getTransactions(req, res) {
   if (provider !== undefined && !safeProvider) {
     return res.status(400).json({ error: 'provider must be bKash, Nagad, or Rocket' });
   }
+  const allowed = allowedProviders(req.user);
+  if (safeProvider && allowed && !allowed.includes(safeProvider)) {
+    return res.status(403).json({ error: 'Provider is outside your authorized scope' });
+  }
   const q = safeProvider
     ? { agentId: agent.agentId, provider: safeProvider }
-    : { agentId: agent.agentId };
+    : allowed
+      ? { agentId: agent.agentId, provider: { $in: allowed } }
+      : { agentId: agent.agentId };
   const txns = await Transaction.find(q).sort({ timestamp: -1 }).limit(Math.min(200, Number(limit) || 50)).lean();
   res.json({ transactions: txns, simulated: true });
 }
@@ -76,12 +98,20 @@ export async function getForecast(req, res) {
   const agent = await findScopedAgent(req);
   if (!agent) return res.status(404).json({ error: 'Agent not found' });
   const now = new Date();
-  const { txnsByProvider, issuesByProvider, findings } = await loadAgentAnalytics(agent, now);
+  const { txnsByProvider, issuesByProvider, cashIssues, findings } = await loadAgentAnalytics(agent, now);
+  const allowed = allowedProviders(req.user);
+  const forecasts = forecastAgent(agent, txnsByProvider, now, issuesByProvider, cashIssues)
+    .filter((forecast) => forecast.resource === 'cash' || !allowed || allowed.includes(forecast.provider));
+  const visibleIssues = allowed
+    ? Object.fromEntries(Object.entries(issuesByProvider).filter(([provider]) => allowed.includes(provider)))
+    : issuesByProvider;
   res.json({
-    forecasts: forecastAgent(agent, txnsByProvider, now, issuesByProvider),
-    issuesByProvider,
-    staleProviders: Object.keys(issuesByProvider),
-    dataQualityWarnings: findings.map((f) => ({ subtype: f.subtype, ...f.evidence })),
+    forecasts,
+    issuesByProvider: visibleIssues,
+    staleProviders: Object.keys(visibleIssues),
+    dataQualityWarnings: findings
+      .filter((finding) => finding.provider == null || !allowed || allowed.includes(finding.provider))
+      .map((f) => ({ subtype: f.subtype, ...f.evidence })),
     simulated: true,
   });
 }

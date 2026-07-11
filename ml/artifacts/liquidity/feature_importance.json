@@ -1,0 +1,456 @@
+{
+  "features": [
+    {
+      "feature": "cash_current",
+      "gain": 678234.477104187,
+      "normalized_gain": 0.416241495422214
+    },
+    {
+      "feature": "previous_shortage_count",
+      "gain": 337984.75035095215,
+      "normalized_gain": 0.2074257246795387
+    },
+    {
+      "feature": "cash_opening",
+      "gain": 83747.07405471802,
+      "normalized_gain": 0.051396690257631744
+    },
+    {
+      "feature": "hour_cos",
+      "gain": 52819.58831214905,
+      "normalized_gain": 0.032416082002356364
+    },
+    {
+      "feature": "provider_balance",
+      "gain": 50799.09491634369,
+      "normalized_gain": 0.031176078403377515
+    },
+    {
+      "feature": "hour_sin",
+      "gain": 44043.009488105774,
+      "normalized_gain": 0.02702977915616601
+    },
+    {
+      "feature": "day_sin",
+      "gain": 38005.22875022888,
+      "normalized_gain": 0.023324313025786362
+    },
+    {
+      "feature": "day_cos",
+      "gain": 26603.64248275757,
+      "normalized_gain": 0.01632700829067392
+    },
+    {
+      "feature": "historical_amount_same_hour",
+      "gain": 22991.195412635803,
+      "normalized_gain": 0.014110001604400589
+    },
+    {
+      "feature": "provider_opening",
+      "gain": 22225.40076160431,
+      "normalized_gain": 0.013640023268747924
+    },
+    {
+      "feature": "historical_count_same_hour",
+      "gain": 17895.68008041382,
+      "normalized_gain": 0.010982816252681752
+    },
+    {
+      "feature": "baseline_count_deviation",
+      "gain": 14342.054055213928,
+      "normalized_gain": 0.00880190882194187
+    },
+    {
+      "feature": "cash_out_amount_60m",
+      "gain": 13694.631742477417,
+      "normalized_gain": 0.008404577160517413
+    },
+    {
+      "feature": "avg_amount_60m",
+      "gain": 12726.920900344849,
+      "normalized_gain": 0.0078106801799549316
+    },
+    {
+      "feature": "max_amount_60m",
+      "gain": 12096.319062232971,
+      "normalized_gain": 0.0074236714669322764
+    },
+    {
+      "feature": "net_cash_flow_60m",
+      "gain": 11966.726607322693,
+      "normalized_gain": 0.0073441388583017015
+    },
+    {
+      "feature": "cash_in_amount_60m",
+      "gain": 11459.272420883179,
+      "normalized_gain": 0.007032707492671789
+    },
+    {
+      "feature": "amount_std_60m",
+      "gain": 10959.12811088562,
+      "normalized_gain": 0.00672576229518028
+    },
+    {
+      "feature": "avg_amount_30m",
+      "gain": 10362.627820968628,
+      "normalized_gain": 0.006359682154644026
+    },
+    {
+      "feature": "cash_in_amount_30m",
+      "gain": 10226.84655380249,
+      "normalized_gain": 0.006276351389837043
+    },
+    {
+      "feature": "provider_share_30m",
+      "gain": 10203.245477676392,
+      "normalized_gain": 0.006261867096348684
+    },
+    {
+      "feature": "amount_std_30m",
+      "gain": 9627.621974945068,
+      "normalized_gain": 0.005908599317040183
+    },
+    {
+      "feature": "max_amount_30m",
+      "gain": 8925.65963935852,
+      "normalized_gain": 0.005477795720115795
+    },
+    {
+      "feature": "avg_amount_5m",
+      "gain": 8433.987023353577,
+      "normalized_gain": 0.005176049713605112
+    },
+    {
+      "feature": "net_cash_flow_5m",
+      "gain": 7510.61799621582,
+      "normalized_gain": 0.004609365893101936
+    },
+    {
+      "feature": "emoney_burn_rate_30m",
+      "gain": 7118.196395874023,
+      "normalized_gain": 0.004368531551474746
+    },
+    {
+      "feature": "unique_customers_60m",
+      "gain": 6722.406711578369,
+      "normalized_gain": 0.004125630172047228
+    },
+    {
+      "feature": "velocity_ratio",
+      "gain": 6305.98273563385,
+      "normalized_gain": 0.0038700652541196123
+    },
+    {
+      "feature": "cash_out_amount_30m",
+      "gain": 6261.305520057678,
+      "normalized_gain": 0.003842646254274416
+    },
+    {
+      "feature": "amount_std_5m",
+      "gain": 6105.981117248535,
+      "normalized_gain": 0.003747321607882386
+    },
+    {
+      "feature": "txn_count_60m",
+      "gain": 6008.077968597412,
+      "normalized_gain": 0.0036872371468637125
+    },
+    {
+      "feature": "max_amount_5m",
+      "gain": 5825.712113380432,
+      "normalized_gain": 0.003575316802422411
+    },
+    {
+      "feature": "is_unusual_hour",
+      "gain": 4738.113121032715,
+      "normalized_gain": 0.0029078428737489724
+    },
+    {
+      "feature": "cash_in_amount_5m",
+      "gain": 4387.862684249878,
+      "normalized_gain": 0.0026928895346010773
+    },
+    {
+      "feature": "cash_out_amount_5m",
+      "gain": 4309.051317214966,
+      "normalized_gain": 0.0026445219532139673
+    },
+    {
+      "feature": "demand_acceleration",
+      "gain": 4155.935578346252,
+      "normalized_gain": 0.002550552793180246
+    },
+    {
+      "feature": "is_local_event",
+      "gain": 4107.570201873779,
+      "normalized_gain": 0.0025208703200693015
+    },
+    {
+      "feature": "cash_burn_rate_30m",
+      "gain": 3950.8190717697144,
+      "normalized_gain": 0.00242467007221075
+    },
+    {
+      "feature": "near_identical_count_60m",
+      "gain": 3085.247230529785,
+      "normalized_gain": 0.0018934571513764087
+    },
+    {
+      "feature": "provider_emoney_flow_60m",
+      "gain": 2930.866798400879,
+      "normalized_gain": 0.001798711832312671
+    },
+    {
+      "feature": "feed_delay_min",
+      "gain": 2526.4152994155884,
+      "normalized_gain": 0.0015504945823106007
+    },
+    {
+      "feature": "txn_count_30m",
+      "gain": 2395.6529788970947,
+      "normalized_gain": 0.0014702440116379223
+    },
+    {
+      "feature": "failed_ratio_60m",
+      "gain": 2185.8741731643677,
+      "normalized_gain": 0.0013414999758305786
+    },
+    {
+      "feature": "unique_customers_30m",
+      "gain": 2019.5986099243164,
+      "normalized_gain": 0.0012394544570142622
+    },
+    {
+      "feature": "high_value_ratio_60m",
+      "gain": 2001.228406906128,
+      "normalized_gain": 0.0012281804197400911
+    },
+    {
+      "feature": "near_identical_count_30m",
+      "gain": 1633.8068008422852,
+      "normalized_gain": 0.0010026889062277927
+    },
+    {
+      "feature": "balance_mismatch_amount",
+      "gain": 1623.2038297653198,
+      "normalized_gain": 0.000996181722228775
+    },
+    {
+      "feature": "repeated_exact_count_60m",
+      "gain": 1536.7341861724854,
+      "normalized_gain": 0.0009431141549305434
+    },
+    {
+      "feature": "provider_bkash",
+      "gain": 1233.7116928100586,
+      "normalized_gain": 0.0007571452311414201
+    },
+    {
+      "feature": "unique_customers_5m",
+      "gain": 1116.8532943725586,
+      "normalized_gain": 0.0006854276818862562
+    },
+    {
+      "feature": "is_salary_day",
+      "gain": 1106.841423034668,
+      "normalized_gain": 0.0006792832636380841
+    },
+    {
+      "feature": "max_txns_customer_60m",
+      "gain": 892.2749900817871,
+      "normalized_gain": 0.0005476009974975533
+    },
+    {
+      "feature": "txn_count_5m",
+      "gain": 882.4967956542969,
+      "normalized_gain": 0.0005415999898690329
+    },
+    {
+      "feature": "provider_nagad",
+      "gain": 618.4033069610596,
+      "normalized_gain": 0.0003795223126411083
+    },
+    {
+      "feature": "near_identical_count_5m",
+      "gain": 567.3137969970703,
+      "normalized_gain": 0.0003481680026706167
+    },
+    {
+      "feature": "provider_emoney_flow_5m",
+      "gain": 498.36730575561523,
+      "normalized_gain": 0.00030585462641615456
+    },
+    {
+      "feature": "repeated_exact_count_5m",
+      "gain": 443.60850524902344,
+      "normalized_gain": 0.0002722484241662959
+    },
+    {
+      "feature": "repeated_exact_count_30m",
+      "gain": 439.77309799194336,
+      "normalized_gain": 0.00026989458385570517
+    },
+    {
+      "feature": "provider_rocket",
+      "gain": 416.34729766845703,
+      "normalized_gain": 0.0002555178594524539
+    },
+    {
+      "feature": "provider_emoney_flow_30m",
+      "gain": 291.59360122680664,
+      "normalized_gain": 0.00017895486108051385
+    },
+    {
+      "feature": "max_txns_customer_30m",
+      "gain": 260.4625015258789,
+      "normalized_gain": 0.00015984929223804162
+    },
+    {
+      "feature": "max_txns_customer_5m",
+      "gain": 223.70659828186035,
+      "normalized_gain": 0.00013729170684779863
+    },
+    {
+      "feature": "high_value_ratio_5m",
+      "gain": 187.29529762268066,
+      "normalized_gain": 0.00011494560863504643
+    },
+    {
+      "feature": "net_cash_flow_30m",
+      "gain": 180.2567024230957,
+      "normalized_gain": 0.0001106259293936492
+    },
+    {
+      "feature": "failed_ratio_30m",
+      "gain": 127.39240264892578,
+      "normalized_gain": 7.818240737395025e-05
+    },
+    {
+      "feature": "failed_ratio_5m",
+      "gain": 78.28279876708984,
+      "normalized_gain": 4.804319202965592e-05
+    },
+    {
+      "feature": "high_value_ratio_30m",
+      "gain": 40.003299713134766,
+      "normalized_gain": 2.455055568025981e-05
+    },
+    {
+      "feature": "cash_floor",
+      "gain": 0.0,
+      "normalized_gain": 0.0
+    },
+    {
+      "feature": "cash_critical",
+      "gain": 0.0,
+      "normalized_gain": 0.0
+    },
+    {
+      "feature": "provider_floor",
+      "gain": 0.0,
+      "normalized_gain": 0.0
+    },
+    {
+      "feature": "provider_critical",
+      "gain": 0.0,
+      "normalized_gain": 0.0
+    },
+    {
+      "feature": "is_weekend",
+      "gain": 0.0,
+      "normalized_gain": 0.0
+    },
+    {
+      "feature": "is_eid_event",
+      "gain": 0.0,
+      "normalized_gain": 0.0
+    },
+    {
+      "feature": "feed_missing",
+      "gain": 0.0,
+      "normalized_gain": 0.0
+    },
+    {
+      "feature": "cash_balance_mismatch_amount",
+      "gain": 0.0,
+      "normalized_gain": 0.0
+    },
+    {
+      "feature": "missing_feature_pct",
+      "gain": 0.0,
+      "normalized_gain": 0.0
+    },
+    {
+      "feature": "txn_count_15m",
+      "gain": 0.0,
+      "normalized_gain": 0.0
+    },
+    {
+      "feature": "cash_in_amount_15m",
+      "gain": 0.0,
+      "normalized_gain": 0.0
+    },
+    {
+      "feature": "cash_out_amount_15m",
+      "gain": 0.0,
+      "normalized_gain": 0.0
+    },
+    {
+      "feature": "net_cash_flow_15m",
+      "gain": 0.0,
+      "normalized_gain": 0.0
+    },
+    {
+      "feature": "provider_emoney_flow_15m",
+      "gain": 0.0,
+      "normalized_gain": 0.0
+    },
+    {
+      "feature": "avg_amount_15m",
+      "gain": 0.0,
+      "normalized_gain": 0.0
+    },
+    {
+      "feature": "max_amount_15m",
+      "gain": 0.0,
+      "normalized_gain": 0.0
+    },
+    {
+      "feature": "amount_std_15m",
+      "gain": 0.0,
+      "normalized_gain": 0.0
+    },
+    {
+      "feature": "unique_customers_15m",
+      "gain": 0.0,
+      "normalized_gain": 0.0
+    },
+    {
+      "feature": "max_txns_customer_15m",
+      "gain": 0.0,
+      "normalized_gain": 0.0
+    },
+    {
+      "feature": "failed_ratio_15m",
+      "gain": 0.0,
+      "normalized_gain": 0.0
+    },
+    {
+      "feature": "high_value_ratio_15m",
+      "gain": 0.0,
+      "normalized_gain": 0.0
+    },
+    {
+      "feature": "repeated_exact_count_15m",
+      "gain": 0.0,
+      "normalized_gain": 0.0
+    },
+    {
+      "feature": "near_identical_count_15m",
+      "gain": 0.0,
+      "normalized_gain": 0.0
+    }
+  ],
+  "importance_type": "gain",
+  "model_type": "lightgbm"
+}

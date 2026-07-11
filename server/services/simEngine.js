@@ -7,6 +7,7 @@ import { detectAnomalies } from './anomaly.js';
 import { providerDataIssues, STALE_MIN } from './dataQuality.js';
 import { generateExplanation } from './explain.js';
 import { rebuildSeededState } from './demoReset.js';
+import { evaluateDecisionSupport } from './ml/decisionSupport.js';
 
 /*
   Sim engine — COMPUTE-ON-WRITE (eng-review decision #2).
@@ -120,6 +121,8 @@ const KIND_BY_SUBTYPE = {
   cash_depletion: 'liquidity',
   emoney_depletion: 'liquidity',
   demand_surge: 'liquidity', // demand context — informs liquidity planning, not a review flag
+  model_liquidity_risk: 'liquidity',
+  model_unusual_review: 'anomaly',
   velocity_spike: 'anomaly',
   repeated_amount: 'anomaly',
   stale_feed: 'data_quality',
@@ -145,6 +148,18 @@ async function upsertAlert(agent, finding) {
     existing.evidence = finding.evidence;
     existing.confidence = finding.confidence;
     existing.severity = finding.severity;
+    existing.riskScore = finding.riskScore ?? existing.riskScore;
+    existing.confidenceScore = finding.confidenceScore ?? existing.confidenceScore;
+    existing.dataConfidence = finding.dataConfidence ?? existing.dataConfidence;
+    existing.riskBand = finding.riskBand ?? existing.riskBand;
+    existing.modelType = finding.modelType ?? existing.modelType;
+    existing.modelVersion = finding.modelVersion ?? existing.modelVersion;
+    existing.featureSchemaVersion = finding.featureSchemaVersion ?? existing.featureSchemaVersion;
+    existing.decisionSource = finding.decisionSource ?? existing.decisionSource;
+    existing.triggeredRules = finding.triggeredRules ?? existing.triggeredRules;
+    existing.dataFreshness = finding.dataFreshness ?? existing.dataFreshness;
+    existing.predictionHorizonMin = finding.predictionHorizonMin ?? existing.predictionHorizonMin;
+    existing.fallbackReason = finding.fallbackReason ?? existing.fallbackReason;
     if (severityChanged) {
       // Regenerate NL text only on severity change (compute-on-write, OpenAI once — not per poll)
       const ex = await generateExplanation(finding);
@@ -174,6 +189,18 @@ async function upsertAlert(agent, finding) {
     subtype: finding.subtype,
     severity: finding.severity,
     confidence: finding.confidence,
+    riskScore: finding.riskScore ?? null,
+    confidenceScore: finding.confidenceScore ?? finding.confidence,
+    dataConfidence: finding.dataConfidence ?? finding.confidence,
+    riskBand: finding.riskBand ?? 'unknown',
+    modelType: finding.modelType ?? null,
+    modelVersion: finding.modelVersion ?? null,
+    featureSchemaVersion: finding.featureSchemaVersion ?? null,
+    decisionSource: finding.decisionSource ?? 'rules_only',
+    triggeredRules: finding.triggeredRules ?? [],
+    dataFreshness: finding.dataFreshness ?? {},
+    predictionHorizonMin: finding.predictionHorizonMin ?? null,
+    fallbackReason: finding.fallbackReason ?? null,
     evidence: finding.evidence,
     possibleNormalReasons: finding.possibleNormalReasons || [],
     requiresReview: finding.requiresReview !== false,
@@ -188,17 +215,17 @@ async function upsertAlert(agent, finding) {
 /* ---------- Analytics pass (compute-on-write) — also reused by validate.js ---------- */
 export async function recomputeAgent(agent, now = new Date()) {
   const since = new Date(now.getTime() - 6 * 60 * 60_000); // 6h of recent txns
-  const txns = await Transaction.find({ agentId: agent.agentId, timestamp: { $gte: since } }).sort({ timestamp: 1 }).lean();
+  const txns = await Transaction.find({ agentId: agent.agentId, timestamp: { $gte: since, $lte: now } }).sort({ timestamp: 1 }).lean();
   const txnsByProvider = {};
   for (const p of agent.providers) txnsByProvider[p.provider] = [];
   for (const t of txns) (txnsByProvider[t.provider] ||= []).push(t);
 
   // Data quality FIRST — its issue map gates every forecast (dim + suppress).
-  const { issuesByProvider, findings: dqFindings } = providerDataIssues(agent, txnsByProvider, now);
+  const { issuesByProvider, cashIssues, findings: dqFindings } = providerDataIssues(agent, txnsByProvider, now);
   const findings = [...dqFindings];
 
   // Liquidity
-  for (const f of forecastAgent(agent, txnsByProvider, now, issuesByProvider)) {
+  for (const f of forecastAgent(agent, txnsByProvider, now, issuesByProvider, cashIssues)) {
     if (f.status === 'warning' || f.status === 'critical') {
       findings.push({
         subtype: f.resource === 'cash' ? 'cash_depletion' : 'emoney_depletion',
@@ -217,6 +244,49 @@ export async function recomputeAgent(agent, now = new Date()) {
     const recent = all.filter((t) => t.timestamp >= baselineCutoff);
     const baseline = all.filter((t) => t.timestamp < baselineCutoff);
     findings.push(...detectAnomalies({ provider: p.provider, recentTxns: recent, baselineTxns: baseline, now }));
+  }
+
+  const decisionSupport = await evaluateDecisionSupport({ agent, transactions: txns, now, persistPredictions: true });
+  const byProvider = new Map(decisionSupport.providerDecisions.map((decision) => [decision.provider, decision]));
+  for (const finding of findings) {
+    const decision = byProvider.get(finding.provider);
+    const selected = finding.kind === 'anomaly' || ['velocity_spike', 'repeated_amount'].includes(finding.subtype)
+      ? decision?.anomaly : decision?.liquidity;
+    if (!selected) continue;
+    finding.riskScore = selected.riskScore;
+    finding.confidenceScore = selected.confidenceScore;
+    finding.dataConfidence = selected.dataConfidence;
+    finding.riskBand = selected.riskBand;
+    finding.modelType = selected.model?.type || null;
+    finding.modelVersion = selected.model?.version || null;
+    finding.featureSchemaVersion = decision.features.schemaVersion;
+    finding.decisionSource = selected.decisionSource;
+    finding.triggeredRules = selected.triggeredRules;
+    finding.dataFreshness = selected.dataFreshness;
+    finding.predictionHorizonMin = 60;
+    finding.fallbackReason = selected.fallbackReason;
+    finding.confidence = selected.confidenceScore;
+    finding.evidence = { ...finding.evidence, riskScore: selected.riskScore, confidenceScore: selected.confidenceScore, modelDriven: selected.mode === 'model_only' };
+  }
+  for (const decision of decisionSupport.providerDecisions) {
+    const hasLiquidity = findings.some((finding) => finding.provider === decision.provider && ['cash_depletion', 'emoney_depletion'].includes(finding.subtype));
+    const hasAnomaly = findings.some((finding) => finding.provider === decision.provider && ['velocity_spike', 'repeated_amount'].includes(finding.subtype));
+    if (decision.liquidity.alert && decision.liquidity.mode === 'model_only' && !hasLiquidity) {
+      findings.push({
+        ...decision.liquidity,
+        subtype: 'model_liquidity_risk', provider: decision.provider, severity: decision.liquidity.riskBand === 'critical' ? 'critical' : 'warning',
+        confidence: decision.liquidity.confidenceScore, requiresReview: false,
+        evidence: { provider: decision.provider, riskScore: decision.liquidity.riskScore, confidenceScore: decision.liquidity.confidenceScore, evidence: decision.liquidity.evidence },
+      });
+    }
+    if (decision.anomaly.alert && decision.anomaly.mode === 'model_only' && !hasAnomaly) {
+      findings.push({
+        ...decision.anomaly,
+        subtype: 'model_unusual_review', provider: decision.provider, severity: decision.anomaly.riskBand === 'critical' ? 'critical' : 'warning',
+        confidence: decision.anomaly.confidenceScore, requiresReview: true,
+        evidence: { provider: decision.provider, riskScore: decision.anomaly.riskScore, confidenceScore: decision.anomaly.confidenceScore, evidence: decision.anomaly.evidence },
+      });
+    }
   }
 
   const alertResults = [];

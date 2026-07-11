@@ -1,0 +1,75 @@
+[33mcommit b4e45de682ad61bb2e553ee9d43bf1866b27dfbb[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m
+Author: ayhanarashtasin <ayhanarashtasin@gmail.com>
+Date:   Sun Jul 12 02:10:22 2026 +0600
+
+    Change the Architecture of Alert
+    
+    Add hybrid rules + ML (LightGBM/ONNX) decision layer,Provider-scoped decision support: feature pipeline -> rule engine + ONNX models  -> hybrid risk/confidence, wired into compute-on-write alerts with a Prediction  audit trail and graceful rules-only fallback.
+
+ .env.example                                   |   17 [32m+[m
+ .gitignore                                     |   17 [32m+[m[31m-[m
+ README.md                                      |    7 [32m+[m[31m-[m
+ client/src/api/client.js                       |    4 [32m+[m
+ client/src/components/DecisionSummary.jsx      |  142 [32m+[m
+ client/src/components/ModelStatus.jsx          |   58 [32m+[m
+ client/src/components/RiskConfidence.jsx       |   53 [32m+[m
+ client/src/pages/AgentDetail.jsx               |   39 [32m+[m[31m-[m
+ client/src/pages/Dashboard.jsx                 |   16 [32m+[m[31m-[m
+ data/ml/manifest.json                          |   52 [32m+[m
+ ml/Dockerfile                                  |   10 [32m+[m
+ ml/__init__.py                                 |    1 [32m+[m
+ ml/artifacts/anomaly/MODEL_CARD.md             |   49 [32m+[m
+ ml/artifacts/anomaly/evaluation.json           |  129 [32m+[m
+ ml/artifacts/anomaly/feature_importance.json   |  456 [32m++[m
+ ml/artifacts/anomaly/manifest.json             |  282 [32m++[m
+ ml/artifacts/anomaly/model.lightgbm.txt        | 5907 [32m++++++++++++++++++++++++[m
+ ml/artifacts/anomaly/model.onnx                |  Bin [31m0[m -> [32m685377[m bytes
+ ml/artifacts/liquidity/MODEL_CARD.md           |   49 [32m+[m
+ ml/artifacts/liquidity/evaluation.json         |  129 [32m+[m
+ ml/artifacts/liquidity/feature_importance.json |  456 [32m++[m
+ ml/artifacts/liquidity/manifest.json           |  282 [32m++[m
+ ml/artifacts/liquidity/model.lightgbm.txt      | 5907 [32m++++++++++++++++++++++++[m
+ ml/artifacts/liquidity/model.onnx              |  Bin [31m0[m -> [32m685377[m bytes
+ ml/requirements.txt                            |    9 [32m+[m
+ ml/sust_ml/__init__.py                         |    9 [32m+[m
+ ml/sust_ml/data.py                             |  273 [32m++[m
+ ml/sust_ml/metrics.py                          |   66 [32m+[m
+ ml/sust_ml/pipeline.py                         |  403 [32m++[m
+ ml/tests/test_metrics.py                       |   32 [32m+[m
+ ml/tests/test_schema.py                        |   24 [32m+[m
+ ml/tests/test_split.py                         |   52 [32m+[m
+ ml/train-models.ps1                            |   19 [32m+[m
+ ml/train.py                                    |   43 [32m+[m
+ server/config/decisionConfig.js                |   38 [32m+[m
+ server/controllers/agentController.js          |   48 [32m+[m[31m-[m
+ server/controllers/alertController.js          |   37 [32m+[m[31m-[m
+ server/controllers/decisionController.js       |   53 [32m+[m
+ server/controllers/modelController.js          |    9 [32m+[m
+ server/models/Agent.js                         |   22 [32m+[m[31m-[m
+ server/models/Alert.js                         |   17 [32m+[m
+ server/models/Prediction.js                    |   29 [32m+[m
+ server/models/Transaction.js                   |   11 [32m+[m[31m-[m
+ server/package-lock.json                       |  175 [32m+[m[31m-[m
+ server/package.json                            |    4 [32m+[m[31m-[m
+ server/routes/agentRoutes.js                   |    3 [32m+[m
+ server/routes/modelRoutes.js                   |   10 [32m+[m
+ server/scripts/generate-ml-dataset.js          |  355 [32m++[m
+ server/scripts/seed.js                         |    3 [32m+[m[31m-[m
+ server/scripts/validate.js                     |    4 [32m+[m[31m-[m
+ server/server.js                               |    2 [32m+[m
+ server/services/dataQuality.js                 |   62 [32m+[m[31m-[m
+ server/services/explain.js                     |   24 [32m+[m
+ server/services/forecast.js                    |   25 [32m+[m[31m-[m
+ server/services/ml/decisionSupport.js          |  119 [32m+[m
+ server/services/ml/evidenceMapper.js           |   20 [32m+[m
+ server/services/ml/featurePipeline.js          |  209 [32m+[m
+ server/services/ml/hybridDecision.js           |   71 [32m+[m
+ server/services/ml/modelRuntime.js             |  169 [32m+[m
+ server/services/rules/ruleDefinitions.js       |   67 [32m+[m
+ server/services/rules/ruleEngine.js            |   25 [32m+[m
+ server/services/simEngine.js                   |   76 [32m+[m[31m-[m
+ server/tests/featurePipeline.test.js           |   24 [32m+[m
+ server/tests/hybridDecision.test.js            |   25 [32m+[m
+ server/tests/modelRuntime.test.js              |   13 [32m+[m
+ server/tests/ruleEngine.test.js                |   32 [32m+[m
+ 66 files changed, 16719 insertions(+), 54 deletions(-)

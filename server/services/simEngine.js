@@ -269,7 +269,7 @@ export function startSim({ agentId, scenario = 'B', speed = 1 }) {
   state.speed = speed;
   state.tickCount = 0;
   state.timer = setInterval(tick, Math.max(500, 2000 / speed));
-  console.log(`[sim] started scenario ${scenario} for ${agentId} at ${speed}x`);
+  console.log('[sim] simulation started');
   return { ...state, timer: undefined };
 }
 

@@ -90,7 +90,7 @@ export default function AgentDetail() {
         {canControl && (
           <>
             <button className={simRunning ? 'danger' : 'success'} onClick={toggleSim}>
-              {simRunning ? `⏹ ${t.stopSim}` : `🌙 ${t.eidRush} ▶`}
+              {simRunning ? `⏹ ${t.stopSim}` : `${t.eidRush} ▶`}
             </button>
             <button onClick={stepOnce} disabled={simRunning || stepping} title={simRunning ? t.stepDisabledHint : ''}>
               ⏭ {stepping ? t.loading : t.step}{stepCount > 0 && !simRunning ? ` (${stepCount})` : ''}

@@ -24,6 +24,13 @@ async function findScopedAgent(req) {
   return Agent.findOne({ $and: [{ agentId: String(req.params.id) }, scopeFilter(req.user)] });
 }
 
+function canonicalProvider(value) {
+  if (value === 'bKash') return 'bKash';
+  if (value === 'Nagad') return 'Nagad';
+  if (value === 'Rocket') return 'Rocket';
+  return null;
+}
+
 export async function listAgents(req, res) {
   const agents = await Agent.find(scopeFilter(req.user)).lean();
   res.json({ agents, simulated: true });
@@ -49,8 +56,13 @@ export async function getTransactions(req, res) {
   const agent = await findScopedAgent(req);
   if (!agent) return res.status(404).json({ error: 'Agent not found' });
   const { provider, limit = 50 } = req.query;
-  const q = { agentId: agent.agentId };
-  if (provider && typeof provider === 'string') q.provider = provider;
+  const safeProvider = canonicalProvider(provider);
+  if (provider !== undefined && !safeProvider) {
+    return res.status(400).json({ error: 'provider must be bKash, Nagad, or Rocket' });
+  }
+  const q = safeProvider
+    ? { agentId: agent.agentId, provider: safeProvider }
+    : { agentId: agent.agentId };
   const txns = await Transaction.find(q).sort({ timestamp: -1 }).limit(Math.min(200, Number(limit) || 50)).lean();
   res.json({ transactions: txns, simulated: true });
 }

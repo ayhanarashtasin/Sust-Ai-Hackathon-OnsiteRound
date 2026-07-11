@@ -12,7 +12,8 @@
     "validate:report": "node scripts/validate.js --report",
     "latency": "node scripts/latency-http.js",
     "sample-data": "node scripts/generate-sample-data.js",
-    "test": "node --test"
+    "test": "node --test",
+    "test:coverage": "c8 --reporter=lcov --reporter=text node --test"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -21,5 +22,8 @@
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.5.1"
+  },
+  "devDependencies": {
+    "c8": "^11.0.0"
   }
 }

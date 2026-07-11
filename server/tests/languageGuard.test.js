@@ -27,9 +27,12 @@ test('every template output is guard-safe for every subtype', () => {
     { subtype: 'cash_depletion', evidence: { resource: 'cash', burnRatePerMin: 500, windowMin: 30, projectedDepletionAt: new Date(), suggestedTopUp: 20000 } },
     { subtype: 'emoney_depletion', evidence: { resource: 'emoney', provider: 'Nagad', burnRatePerMin: 300, windowMin: 30, projectedDepletionAt: new Date(), suggestedTopUp: 10000 } },
     { subtype: 'velocity_spike', evidence: { provider: 'bKash', bucketMinutes: 5, bucketCount: 12, baselineMean: 3, baselineStd: 1.4, zScore: 6.4 } },
+    { subtype: 'demand_surge', evidence: { provider: 'Rocket', bucketMinutes: 5, bucketCount: 12, baselineMean: 3, distinctAccounts: 10 } },
     { subtype: 'repeated_amount', evidence: { provider: 'bKash', amount: 9800, repeatCount: 6, distinctAccounts: 2, windowMinutes: 30 } },
     { subtype: 'stale_feed', evidence: { provider: 'Rocket', ageMinutes: 15, thresholdMinutes: 10 } },
+    { subtype: 'missing_feed', evidence: { provider: 'Rocket' } },
     { subtype: 'balance_mismatch', evidence: { provider: 'Rocket', expected: 50000, actual: 57777, deltaAbs: 7777, tolerance: 1 } },
+    { subtype: 'unknown', evidence: {} },
   ];
   for (const c of cases) {
     const ex = templateExplanation({ ...c, confidence: 0.7 });

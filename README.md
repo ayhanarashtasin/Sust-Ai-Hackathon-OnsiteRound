@@ -45,7 +45,7 @@ Log in (password `demo1234` for all):
 ## Demo flow (the Eid story)
 
 1. Log in as `field@demo.test`, open **AGT-001**.
-2. Pick a scenario and press **🌙 Eid rush** (or step tick-by-tick):
+2. Pick a scenario and press **Eid rush** (or step tick-by-tick):
    - **A** — hidden shortage: totals look fine, Nagad e-money is dying. Watch the forecast panel.
    - **B** — repeated ৳9,800 cash-outs from 3 accounts flag on bKash **while a bigger organic Rocket burst classifies as info-level `demand_surge`, never a review flag** (false-positive contrast).
    - **C** — Rocket's feed goes stale **on the first tick** and its balance stops reconciling by tick 5: confidence drops, banner shows, and top-up recommendations are withheld for Rocket *and* shared cash.

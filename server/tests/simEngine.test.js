@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { applyTxnsToState, scenarioTxns } from '../services/simEngine.js';
+import Agent from '../models/Agent.js';
+import {
+  applyTxnsToState, resetSimAgent, scenarioTxns, simStatus, startSim, stepSim, stopSim,
+} from '../services/simEngine.js';
 import { detectAnomalies } from '../services/anomaly.js';
 import { signedDelta } from '../services/signedDelta.js';
 
@@ -58,6 +61,38 @@ test('feed freshness moves with the write — except the intentionally stale pro
   assert.equal(agent.lastFeedAt.get('bKash'), undefined);
   applyTxnsToState(agent, [mkTxn()], { now });
   assert.equal(agent.lastFeedAt.get('bKash'), now);
+});
+
+test('every scripted scenario produces only synthetic transactions for the requested outlet', () => {
+  const now = new Date();
+  for (const scenario of ['A', 'B', 'C', 'D']) {
+    const txns = scenarioTxns(scenario, 'AGT-001', now, 3);
+    assert.ok(txns.length > 0, `${scenario} should generate activity`);
+    assert.ok(txns.every((t) => t.agentId === 'AGT-001' && t.simulated === true));
+  }
+});
+
+test('simulation lifecycle exposes safe status and blocks manual overlap', async () => {
+  const started = startSim({ agentId: 'AGT-001', scenario: 'A', speed: 5 });
+  assert.equal(started.running, true);
+  assert.equal(simStatus().scenario, 'A');
+  assert.deepEqual(await stepSim({ agentId: 'AGT-001', scenario: 'A' }), { error: 'Stop auto mode before stepping' });
+  const stopped = stopSim();
+  assert.equal(stopped.running, false);
+});
+
+test('manual step and reset return a safe error when the outlet disappears', async () => {
+  const originalFindOne = Agent.findOne;
+  Agent.findOne = async () => null;
+  try {
+    const stepped = await stepSim({ agentId: 'AGT-999', scenario: 'C' });
+    assert.equal(stepped.error, 'Agent not found');
+    const reset = await resetSimAgent('AGT-999');
+    assert.equal(reset.error, 'Agent not found');
+  } finally {
+    Agent.findOne = originalFindOne;
+    stopSim();
+  }
 });
 
 /*

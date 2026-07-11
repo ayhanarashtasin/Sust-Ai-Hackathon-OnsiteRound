@@ -27,12 +27,20 @@ export default function App() {
   // Language survives reloads
   const [lang, setLangState] = useState(() => {
     const saved = localStorage.getItem('lang');
-    return LANGS[saved] ? saved : 'en';
+    if (saved === 'bn') return 'bn';
+    if (saved === 'banglish') return 'banglish';
+    return 'en';
   });
   const setLang = (l) => {
-    if (LANGS[l]) {
-      localStorage.setItem('lang', l);
-      setLangState(l);
+    if (l === 'en') {
+      localStorage.setItem('lang', 'en');
+      setLangState('en');
+    } else if (l === 'bn') {
+      localStorage.setItem('lang', 'bn');
+      setLangState('bn');
+    } else if (l === 'banglish') {
+      localStorage.setItem('lang', 'banglish');
+      setLangState('banglish');
     }
   };
   return (

@@ -17,3 +17,31 @@ test('no OPENAI_API_KEY => template fallback with all trilingual fields (AC-7)',
   // Quantified next step (brief's illustrative alert style)
   assert.match(ex.recommendedNextStep_en, /20,000/);
 });
+
+test('liquidity templates withhold quantified advice when data is unreliable', async () => {
+  delete process.env.OPENAI_API_KEY;
+  const ex = await generateExplanation({
+    subtype: 'emoney_depletion',
+    severity: 'warning',
+    confidence: 0.4,
+    evidence: {
+      resource: 'emoney', provider: 'Rocket', burnRatePerMin: 400, windowMin: 30,
+      projectedDepletionAt: new Date(), suggestedTopUp: 0, recommendationSuppressed: true,
+    },
+  });
+  assert.match(ex.recommendedNextStep_en, /no top-up amount is recommended/i);
+  assert.equal(ex.explanationSource, 'template');
+});
+
+test('liquidity templates avoid a top-up when current headroom is sufficient', async () => {
+  delete process.env.OPENAI_API_KEY;
+  const ex = await generateExplanation({
+    subtype: 'cash_depletion',
+    confidence: 0.8,
+    evidence: {
+      resource: 'cash', burnRatePerMin: 10, windowMin: 30,
+      projectedDepletionAt: new Date(), suggestedTopUp: 0,
+    },
+  });
+  assert.match(ex.recommendedNextStep_en, /monitor closely/i);
+});

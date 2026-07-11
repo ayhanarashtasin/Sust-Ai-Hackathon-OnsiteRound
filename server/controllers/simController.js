@@ -11,10 +11,15 @@ async function findControllableAgent(user, value) {
   if (typeof value !== 'string' || !/^AGT-\d{3}$/.test(value)) return null;
   if (user.role === 'agent' && user.agentId !== value) return null;
 
-  const query = user.role === 'field_officer'
-    ? { agentId: value, area: user.area }
-    : { agentId: value };
-  return Agent.findOne(query).select('agentId').lean();
+  // Query only by trusted claims from the signed JWT, then compare request data
+  // in memory. User-controlled values never become part of a MongoDB filter.
+  const trustedScope = user.role === 'agent'
+    ? { agentId: user.agentId }
+    : user.role === 'field_officer'
+      ? { area: user.area }
+      : {};
+  const visibleAgents = await Agent.find(trustedScope).select('agentId').lean();
+  return visibleAgents.find((agent) => agent.agentId === value) || null;
 }
 
 export async function start(req, res) {

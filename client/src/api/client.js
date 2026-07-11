@@ -1,5 +1,7 @@
 /* Single API client — all fetches go through here (views never call fetch directly). */
-const BASE = '/api';
+const configuredOrigin = import.meta.env.VITE_API_ORIGIN?.replace(/\/+$/, '');
+const BASE = configuredOrigin ? `${configuredOrigin}/api` : '/api';
+export const realtimeOrigin = configuredOrigin || undefined;
 
 function token() {
   return localStorage.getItem('token');

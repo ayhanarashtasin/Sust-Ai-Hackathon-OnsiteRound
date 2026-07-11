@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
-import { api } from '../api/client.js';
+import { api, realtimeOrigin } from '../api/client.js';
 
 const AuthContext = createContext(null);
 
@@ -12,7 +12,8 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!user || !token) return undefined;
-    const socket = io({ auth: { token }, transports: ['websocket'] });
+    const options = { auth: { token }, transports: ['websocket'] };
+    const socket = realtimeOrigin ? io(realtimeOrigin, options) : io(options);
     socket.on('data-updated', () => window.dispatchEvent(new Event('sust:data-updated')));
     return () => socket.disconnect();
   }, [user?.id, user?.role]);

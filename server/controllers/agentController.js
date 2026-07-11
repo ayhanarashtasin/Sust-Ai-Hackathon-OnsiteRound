@@ -21,7 +21,7 @@ function scopeFilter(user) {
 async function findScopedAgent(req) {
   // $and so the requested id and the role scope BOTH apply — a plain object
   // spread would let one agentId key silently overwrite the other.
-  return Agent.findOne({ $and: [{ agentId: req.params.id }, scopeFilter(req.user)] });
+  return Agent.findOne({ $and: [{ agentId: String(req.params.id) }, scopeFilter(req.user)] });
 }
 
 export async function listAgents(req, res) {
@@ -50,7 +50,7 @@ export async function getTransactions(req, res) {
   if (!agent) return res.status(404).json({ error: 'Agent not found' });
   const { provider, limit = 50 } = req.query;
   const q = { agentId: agent.agentId };
-  if (provider) q.provider = provider;
+  if (provider && typeof provider === 'string') q.provider = provider;
   const txns = await Transaction.find(q).sort({ timestamp: -1 }).limit(Math.min(200, Number(limit) || 50)).lean();
   res.json({ transactions: txns, simulated: true });
 }

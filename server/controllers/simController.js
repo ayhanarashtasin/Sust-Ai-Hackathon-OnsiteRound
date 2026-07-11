@@ -8,8 +8,9 @@ import { startSim, stopSim, stepSim, resetSimAgent, simStatus } from '../service
   management (read-only) may not drive the sim at all (route-gated).
 */
 async function canControlAgent(user, agentId) {
-  if (user.role === 'agent') return user.agentId === agentId;
-  if (user.role === 'field_officer') return Boolean(await Agent.exists({ agentId, area: user.area }));
+  const safeAgentId = String(agentId);
+  if (user.role === 'agent') return user.agentId === safeAgentId;
+  if (user.role === 'field_officer') return Boolean(await Agent.exists({ agentId: safeAgentId, area: user.area }));
   return true; // ops / risk
 }
 

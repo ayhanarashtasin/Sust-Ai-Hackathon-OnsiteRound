@@ -30,8 +30,10 @@ export default function App() {
     return LANGS[saved] ? saved : 'en';
   });
   const setLang = (l) => {
-    localStorage.setItem('lang', l);
-    setLangState(l);
+    if (LANGS[l]) {
+      localStorage.setItem('lang', l);
+      setLangState(l);
+    }
   };
   return (
     <LangContext.Provider value={{ lang, t: LANGS[lang], setLang }}>

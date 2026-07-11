@@ -19,7 +19,7 @@
     npm run validate -- --seed 42    # different seed
     npm run validate -- --report     # also write docs/validation-report.md
 */
-import { execSync } from 'node:child_process';
+
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -203,8 +203,7 @@ function latencyEval(iters = 200) {
 }
 
 /* ---------- run + report ---------- */
-let commit = 'unknown';
-try { commit = execSync('git rev-parse --short HEAD', { cwd: dirname(fileURLToPath(import.meta.url)) }).toString().trim(); } catch { /* not a repo */ }
+let commit = process.env.GITHUB_SHA ? process.env.GITHUB_SHA.substring(0, 7) : 'unknown';
 const ranAt = new Date().toISOString();
 
 const a = anomalyEval();

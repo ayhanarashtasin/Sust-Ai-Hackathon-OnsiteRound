@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import Agent from '../models/Agent.js';
+import Alert from '../models/Alert.js';
 import {
-  applyTxnsToState, resetSimAgent, scenarioTxns, simStatus, startSim, stepSim, stopSim,
+  applyTxnsToState, resetSimAgent, scenarioTxns, simStatus, startSim, stepSim, stopSim, upsertAlert,
 } from '../services/simEngine.js';
 import { detectAnomalies } from '../services/anomaly.js';
 import { signedDelta } from '../services/signedDelta.js';
@@ -92,6 +93,24 @@ test('manual step and reset return a safe error when the outlet disappears', asy
   } finally {
     Agent.findOne = originalFindOne;
     stopSim();
+  }
+});
+
+test('an alert update clears an old ML fallback after the model recovers', async () => {
+  const originalFindOne = Alert.findOne;
+  const existing = {
+    severity: 'warning', evidenceHistory: [], evidence: {}, confidence: 0.4,
+    fallbackReason: 'ONNX_RUNTIME_UNAVAILABLE', save: async () => {},
+  };
+  Alert.findOne = async () => existing;
+  try {
+    await upsertAlert(
+      { agentId: 'AGT-001' },
+      { subtype: 'repeated_amount', provider: 'bKash', severity: 'warning', confidence: 0.8, evidence: {}, fallbackReason: null },
+    );
+    assert.equal(existing.fallbackReason, null);
+  } finally {
+    Alert.findOne = originalFindOne;
   }
 });
 

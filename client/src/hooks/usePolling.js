@@ -6,7 +6,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
   Exposes lastUpdated + error so pages can show data freshness and a visible
   "connection lost" state instead of silently going stale.
 */
-export function usePolling(fetcher, intervalMs = 3000, deps = []) {
+export function usePolling(fetcher, intervalMs = 3000, deps = [], disabled = false) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
@@ -25,14 +25,16 @@ export function usePolling(fetcher, intervalMs = 3000, deps = []) {
   useEffect(() => {
     alive.current = true;
     load();
+    if (disabled) return undefined;
     const t = setInterval(load, intervalMs);
     return () => { alive.current = false; clearInterval(t); };
-  }, [load, intervalMs]);
+  }, [load, intervalMs, disabled]);
 
   useEffect(() => {
+    if (disabled) return undefined;
     window.addEventListener('sust:data-updated', load);
     return () => window.removeEventListener('sust:data-updated', load);
-  }, [load]);
+  }, [load, disabled]);
 
   return { data, error, lastUpdated, refresh: load };
 }

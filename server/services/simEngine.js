@@ -133,7 +133,7 @@ const KIND_BY_SUBTYPE = {
 const ROUTE = { liquidity: 'field_officer', anomaly: 'ops', data_quality: 'ops' };
 const EVIDENCE_HISTORY_CAP = 20;
 
-async function upsertAlert(agent, finding) {
+export async function upsertAlert(agent, finding) {
   const kind = KIND_BY_SUBTYPE[finding.subtype] || 'data_quality';
   const key = { agentId: agent.agentId, subtype: finding.subtype, provider: finding.provider ?? null };
 
@@ -163,7 +163,8 @@ async function upsertAlert(agent, finding) {
     existing.triggeredRules = finding.triggeredRules ?? existing.triggeredRules;
     existing.dataFreshness = finding.dataFreshness ?? existing.dataFreshness;
     existing.predictionHorizonMin = finding.predictionHorizonMin ?? existing.predictionHorizonMin;
-    existing.fallbackReason = finding.fallbackReason ?? existing.fallbackReason;
+    // Clear a past runtime failure when the current decision has model output.
+    existing.fallbackReason = finding.fallbackReason ?? null;
     if (severityChanged) {
       // Regenerate NL text only on severity change (compute-on-write, OpenAI once — not per poll)
       const ex = await generateExplanation(finding);

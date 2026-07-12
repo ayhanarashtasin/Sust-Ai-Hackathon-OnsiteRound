@@ -28,10 +28,8 @@ const app = express();
 // CORS: dev client origins only (the Vite proxy makes most requests same-origin anyway).
 const ORIGINS = (process.env.CLIENT_ORIGIN || 'http://localhost:5173,http://127.0.0.1:5173').split(',');
 app.use(cors({ origin: ORIGINS }));
-app.use(express.json({ limit: '100kb' }));
 
-// Structured request log with a per-request id — observability for the demo
-// (who asked what, how long it took, what came back).
+// Request-id BEFORE body-parser so req.id is always set in the error handler.
 let reqSeq = 0;
 app.use((req, res, next) => {
   req.id = `req-${Date.now()}-${++reqSeq}`;
@@ -41,6 +39,17 @@ app.use((req, res, next) => {
     // console.log(JSON.stringify({ id: req.id, method: req.method, path: req.path, status: res.statusCode, ms: Math.round(ms * 10) / 10 }));
   });
   next();
+});
+
+app.use(express.json({ limit: '100kb' }));
+
+// Catch body-parser JSON syntax errors before the generic handler — return 400
+// instead of 500, and always have req.id available now that it's set above.
+app.use((err, req, res, next) => {
+  if (err.type === 'entity.parse.failed') {
+    return res.status(400).json({ error: 'Invalid JSON in request body', requestId: req.id });
+  }
+  next(err);
 });
 
 // Health reflects reality: report and 503 when MongoDB is down instead of a hollow ok:true.

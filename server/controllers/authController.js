@@ -44,6 +44,20 @@ export async function login(req, res) {
     return res.status(401).json({ error: 'Invalid credentials' });
   }
   failures.delete(key);
+
+  // Stop any running simulation and reset all agents to their seeded baseline
+  // on login, so the user starts with a completely clean and frozen state,
+  // preventing them from seeing leftover 'automatically generated' data.
+  try {
+    const { stopSim, resetSimAgent } = await import('../services/simEngine.js');
+    const Agent = (await import('../models/Agent.js')).default;
+    stopSim();
+    const agents = await Agent.find({}, 'agentId').lean();
+    await Promise.all(agents.map(a => resetSimAgent(a.agentId)));
+  } catch (err) {
+    console.error('Failed to reset simulation on login', err);
+  }
+
   res.json({ token: sign(user), user: { id: user._id.toString(), name: user.name, role: user.role, area: user.area, providerScope: user.providerScope, agentId: user.agentId } });
 }
 

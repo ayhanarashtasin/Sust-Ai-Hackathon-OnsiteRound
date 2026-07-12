@@ -70,3 +70,4 @@ export async function reset(req, res) {
 export function status(req, res) {
   res.json({ sim: simStatus(), simulated: true });
 }
+

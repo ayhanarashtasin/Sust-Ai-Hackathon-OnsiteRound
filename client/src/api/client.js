@@ -1,7 +1,9 @@
 /* Single API client — all fetches go through here (views never call fetch directly). */
 const configuredOrigin = import.meta.env.VITE_API_ORIGIN?.replace(/\/+$/, '');
 const BASE = configuredOrigin ? `${configuredOrigin}/api` : '/api';
-export const realtimeOrigin = configuredOrigin || undefined;
+// In development, connect Socket.IO directly to the API server. This avoids a
+// Vite proxy disconnect when React intentionally re-runs effects in Strict Mode.
+export const realtimeOrigin = configuredOrigin || (import.meta.env.DEV ? 'http://localhost:5000' : undefined);
 
 function token() {
   return localStorage.getItem('token');

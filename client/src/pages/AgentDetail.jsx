@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../api/client.js';
 import { usePolling } from '../hooks/usePolling.js';
@@ -21,28 +21,43 @@ export default function AgentDetail() {
   const { user } = useAuth();
   const { t } = useLang();
   const [scenario, setScenario] = useState('B');
-  const [simRunning, setSimRunning] = useState(false);
 
   const [stepCount, setStepCount] = useState(0);
   const [tickResult, setTickResult] = useState(null);
   const [stepping, setStepping] = useState(false);
   const [clearing, setClearing] = useState(false);
 
-  const { data: agentData, refresh: refreshAgent } = usePolling(() => api.agent(id), 3000, [id]);
-  const { data: forecastData, error: forecastError, lastUpdated, refresh: refreshForecast } = usePolling(() => api.forecast(id), 3000, [id]);
-  const { data: alertsData, refresh: refreshAlerts } = usePolling(() => api.alerts(`?agentId=${id}&status=new,acknowledged,in_progress,escalated`), 3000, [id]);
-  const { data: decisionData, refresh: refreshDecision } = usePolling(() => api.decisionSupport(id), 3000, [id]);
-  const { data: modelData } = usePolling(() => api.modelStatus(), 10000, []);
+  const { data: simData, refresh: refreshSim } = usePolling(() => api.simStatus(), 2000, []);
+  const activeSim = simData?.sim;
+  const simRunning = activeSim?.running === true && activeSim.agentId === id;
+  const simRunningElsewhere = activeSim?.running === true && activeSim.agentId !== id;
+  const simStatusPending = !simData;
+
+  const { data: agentData, refresh: refreshAgent } = usePolling(() => api.agent(id), 3000, [id], !simRunning);
+  const { data: forecastData, error: forecastError, lastUpdated, refresh: refreshForecast } = usePolling(() => api.forecast(id), 3000, [id], !simRunning);
+  const { data: alertsData, refresh: refreshAlerts } = usePolling(() => api.alerts(`?agentId=${id}&status=new,acknowledged,in_progress,escalated`), 3000, [id], !simRunning);
+  const { data: decisionData, refresh: refreshDecision } = usePolling(() => api.decisionSupport(id), 3000, [id], !simRunning);
+  const { data: modelData } = usePolling(() => api.modelStatus(), 10000, [], !simRunning);
+  // Force simulation to stop when navigating to this page so it starts frozen
+  // and only updates when explicitly clicking "Next" or "Eid Rush".
+  useEffect(() => {
+    api.simStop().catch(console.error);
+  }, []);
+
 
   async function toggleSim() {
-    if (simRunning) {
-      await api.simStop();
-      setSimRunning(false);
-    } else {
-      await api.simStart(id, scenario, 2);
-      setSimRunning(true);
-      setStepCount(0);
-      setTickResult(null);
+    try {
+      if (simRunning) {
+        await api.simStop();
+      } else {
+        await api.simStart(id, scenario, 2);
+        setStepCount(0);
+        setTickResult(null);
+      }
+    } finally {
+      // The timer belongs to the server process, so refresh its state rather
+      // than relying on a tab-local flag after reloads or other sessions.
+      await refreshSim();
     }
   }
 
@@ -52,10 +67,9 @@ export default function AgentDetail() {
     setClearing(true);
     try {
       await api.simReset(id);
-      setSimRunning(false);
       setStepCount(0);
       setTickResult(null);
-      await Promise.all([refreshAgent(), refreshForecast(), refreshAlerts(), refreshDecision()]);
+      await Promise.all([refreshAgent(), refreshForecast(), refreshAlerts(), refreshDecision(), refreshSim()]);
     } catch (error) {
       window.alert(error.message);
     } finally {
@@ -90,7 +104,7 @@ export default function AgentDetail() {
     <div className="page">
       <div className="simbar card">
         <span style={{ color: 'var(--dim)', fontSize: 13 }}>{t.scenario}:</span>
-        <select value={scenario} onChange={(e) => setScenario(e.target.value)} disabled={simRunning}>
+        <select value={scenario} onChange={(e) => setScenario(e.target.value)} disabled={simStatusPending || simRunning || simRunningElsewhere}>
           <option value="A">A — Hidden provider shortage</option>
           <option value="B">B — Liquidity + unusual activity</option>
           <option value="C">C — Data inconsistency</option>
@@ -98,17 +112,18 @@ export default function AgentDetail() {
         </select>
         {canControl && (
           <>
-            <button className={simRunning ? 'danger' : 'success'} onClick={toggleSim}>
+            <button className={simRunning ? 'danger' : 'success'} onClick={toggleSim} disabled={simStatusPending || simRunningElsewhere}>
               {simRunning ? `⏹ ${t.stopSim}` : `${t.eidRush} ▶`}
             </button>
-            <button onClick={stepOnce} disabled={simRunning || stepping} title={simRunning ? t.stepDisabledHint : ''}>
+            <button onClick={stepOnce} disabled={simStatusPending || simRunning || simRunningElsewhere || stepping} title={simRunning || simRunningElsewhere ? t.stepDisabledHint : ''}>
               ⏭ {stepping ? t.loading : t.step}{stepCount > 0 && !simRunning ? ` (${stepCount})` : ''}
             </button>
-            <button className="danger" onClick={resetDemo} disabled={clearing} title={t.resetHint}>
-              🧹 {clearing ? t.resetting : t.resetDemo}
+            <button className="danger" onClick={resetDemo} disabled={simStatusPending || simRunningElsewhere || clearing} title={t.resetHint}>
+              {clearing ? t.resetting : t.resetDemo}
             </button>
           </>
         )}
+        {simRunningElsewhere && <span style={{ fontSize: 12, color: 'var(--warn)' }}>Simulation is active for {activeSim.agentId}.</span>}
         <span style={{ fontSize: 12, color: 'var(--dim)' }}>SIMULATED transactions only — no real money moves.</span>
         <span style={{ marginLeft: 'auto' }}><LiveStatus lastUpdated={lastUpdated} error={forecastError} /></span>
       </div>

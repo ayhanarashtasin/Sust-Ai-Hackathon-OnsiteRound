@@ -24,6 +24,67 @@ test('missing model artifact never hides a critical deterministic safety rule', 
   assert.equal(decisions.liquidity.fallbackReason, 'MODEL_ARTIFACT_MISSING');
 });
 
+test('model-only alert fires when model exceeds threshold but no hard rules are triggered', () => {
+  const rules = { hardSafety: [], anomalyEvidence: [], dataQuality: [], triggered: [], hasCriticalOverride: false };
+  const available = { available: true, probability: 0.72, threshold: 0.65, modelType: 'lightgbm', modelVersion: 'v1', validationPrAuc: 0.82 };
+  const decisions = combineDecisions({ liquidityModel: available, anomalyModel: available, rules, features: { missing_feature_pct: 0 } });
+  assert.equal(decisions.liquidity.alert, true);
+  assert.equal(decisions.liquidity.mode, 'model_only');
+  assert.equal(decisions.liquidity.decisionSource, 'model');
+  assert.ok(decisions.liquidity.model != null);
+});
+
+test('rule_only mode when rules fire and model is unavailable', () => {
+  const rules = {
+    hardSafety: [{ id: 'cash_below_minimum', severity: 'warning' }],
+    anomalyEvidence: [],
+    dataQuality: [],
+    triggered: [{ id: 'cash_below_minimum', severity: 'warning' }],
+    hasCriticalOverride: false,
+  };
+  const unavailable = { available: false, fallbackReason: 'ML_DISABLED' };
+  const decisions = combineDecisions({ liquidityModel: unavailable, anomalyModel: unavailable, rules, features: { missing_feature_pct: 0 } });
+  assert.equal(decisions.liquidity.alert, true);
+  assert.equal(decisions.liquidity.mode, 'rule_only');
+  assert.equal(decisions.liquidity.decisionSource, 'rules_only');
+  assert.equal(decisions.liquidity.model, null);
+});
+
+test('model_rule_agreement when both model and hard safety fire for liquidity', () => {
+  const rules = {
+    hardSafety: [{ id: 'cash_below_minimum', severity: 'warning' }],
+    anomalyEvidence: [],
+    dataQuality: [],
+    triggered: [{ id: 'cash_below_minimum', severity: 'warning' }],
+    hasCriticalOverride: false,
+  };
+  const available = { available: true, probability: 0.8, threshold: 0.65, modelType: 'lightgbm', modelVersion: 'v1', validationPrAuc: 0.8 };
+  const decisions = combineDecisions({ liquidityModel: available, anomalyModel: { available: false, fallbackReason: 'ML_DISABLED' }, rules, features: { missing_feature_pct: 0 } });
+  assert.equal(decisions.liquidity.mode, 'model_rule_agreement');
+  assert.equal(decisions.liquidity.alert, true);
+});
+
+test('data confidence is reduced proportionally to missing feature percentage', () => {
+  const rules = { hardSafety: [], anomalyEvidence: [], dataQuality: [], triggered: [], hasCriticalOverride: false };
+  const available = { available: true, probability: 0.3, threshold: 0.65, modelType: 'lgbm', modelVersion: 'v1', validationPrAuc: null };
+  const full = combineDecisions({ liquidityModel: available, anomalyModel: available, rules, features: { missing_feature_pct: 0 } });
+  const partial = combineDecisions({ liquidityModel: available, anomalyModel: available, rules, features: { missing_feature_pct: 0.5 } });
+  assert.ok(partial.liquidity.dataConfidence < full.liquidity.dataConfidence);
+});
+
+test('data quality rules reduce confidence and mark preciseHorizonAllowed false', () => {
+  const rules = {
+    hardSafety: [],
+    anomalyEvidence: [],
+    dataQuality: [{ id: 'provider_feed_stale', severity: 'warning' }],
+    triggered: [{ id: 'provider_feed_stale', severity: 'warning' }],
+    hasCriticalOverride: false,
+  };
+  const available = { available: true, probability: 0.3, threshold: 0.65, modelType: 'lgbm', modelVersion: 'v1', validationPrAuc: 0.75 };
+  const decisions = combineDecisions({ liquidityModel: available, anomalyModel: available, rules, features: { missing_feature_pct: 0 } });
+  assert.equal(decisions.liquidity.preciseHorizonAllowed, false);
+});
+
 test('the decision trace preserves the model score and the effective review threshold', () => {
   const rules = {
     hardSafety: [],

@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join, resolve, sep } from 'node:path';
 import { DECISION_CONFIG } from '../../config/decisionConfig.js';
 import { FEATURE_COLUMNS, FEATURE_SCHEMA_VERSION } from './featurePipeline.js';
 
@@ -24,6 +24,14 @@ function unavailable(task, reason) {
   return { task, available: false, decisionSource: 'rules_only', fallbackReason: reason };
 }
 
+function safeArtifactPath(base, relativePath) {
+  const resolved = resolve(base, relativePath);
+  if (!resolved.startsWith(base + sep)) {
+    throw Object.assign(new Error('Artifact path outside expected directory'), { code: 'ENOENT' });
+  }
+  return resolved;
+}
+
 async function load(task) {
   if (!DECISION_CONFIG.mlEnabled) return unavailable(task, 'ML_DISABLED');
   const directory = artifactDirectory(task);
@@ -38,7 +46,7 @@ async function load(task) {
       return unavailable(task, 'ONNX_ARTIFACT_UNAVAILABLE');
     }
     const relativePath = manifest.artifacts.onnx_model.path;
-    const modelBytes = await readFile(join(directory, relativePath));
+    const modelBytes = await readFile(safeArtifactPath(directory, relativePath));
     if (manifest.artifacts.onnx_model.sha256 && checksum(modelBytes) !== manifest.artifacts.onnx_model.sha256) {
       return unavailable(task, 'MODEL_CHECKSUM_MISMATCH');
     }
@@ -51,7 +59,7 @@ async function load(task) {
     const session = await ort.InferenceSession.create(modelBytes, { executionProviders: ['cpu'] });
     let validationPrAuc = null;
     try {
-      const evaluation = JSON.parse(await readFile(join(directory, manifest.artifacts.evaluation.path), 'utf8'));
+      const evaluation = JSON.parse(await readFile(safeArtifactPath(directory, manifest.artifacts.evaluation.path), 'utf8'));
       validationPrAuc = Number(evaluation?.champion?.validation?.pr_auc) || null;
     } catch {
       // Evaluation metadata improves confidence estimates but is not required for safe inference.
@@ -147,7 +155,7 @@ export async function modelMetrics() {
       continue;
     }
     try {
-      const evaluationPath = join(artifactDirectory(task), loaded.manifest.artifacts.evaluation.path);
+      const evaluationPath = safeArtifactPath(artifactDirectory(task), loaded.manifest.artifacts.evaluation.path);
       const evaluation = JSON.parse(await readFile(evaluationPath, 'utf8'));
       output.push({
         task,

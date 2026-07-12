@@ -64,6 +64,44 @@ test('evaluateDecisionSupport returns a decision per provider + a forecast per r
   assert.ok(result.mainPressure === null || typeof result.mainPressure.riskScore === 'number');
 });
 
+test('an agent with no providers produces empty decisions and a null main pressure', async () => {
+  const now = new Date('2026-07-11T15:00:00.000Z');
+  const agent = {
+    agentId: 'AGT-EMPTY',
+    cashBalance: 50_000, cashOpeningBalance: 50_000, cashFloorThreshold: 10_000, cashCriticalThreshold: 5_000,
+    providers: [],
+    lastFeedAt: new Map(),
+  };
+  const result = await evaluateDecisionSupport({ agent, transactions: [], now, persistPredictions: false });
+  assert.equal(result.providerDecisions.length, 0);
+  assert.equal(result.mainPressure, null);
+  assert.equal(result.modelAvailable, false);
+});
+
+test('cash-critical scenario surfaces a critical-band main pressure', async () => {
+  const now = new Date('2026-07-11T15:00:00.000Z');
+  const agent = {
+    agentId: 'AGT-CRIT',
+    cashBalance: 100,
+    cashOpeningBalance: 50_000,
+    cashFloorThreshold: 10_000,
+    cashCriticalThreshold: 5_000,
+    providers: [{ provider: 'bKash', emoneyBalance: 50_000, openingBalance: 50_000, floorThreshold: 5_000, criticalThreshold: 2_500 }],
+    lastFeedAt: new Map([['bKash', now]]),
+  };
+  const result = await evaluateDecisionSupport({ agent, transactions: [], now, persistPredictions: false });
+  assert.ok(result.mainPressure != null);
+  assert.equal(result.mainPressure.riskBand, 'critical');
+});
+
+test('anomaly safeNextStep message is advisory when there are no data quality issues', async () => {
+  const now = new Date('2026-07-11T15:00:00.000Z');
+  const agent = cleanAgent(now);
+  const result = await evaluateDecisionSupport({ agent, transactions: balancedTxns(now), now, persistPredictions: false });
+  const nagad = result.providerDecisions.find((d) => d.provider === 'Nagad');
+  assert.match(nagad.anomaly.safeNextStep, /Review the unusual transaction evidence/);
+});
+
 test('a stale + missing feed lowers data confidence and switches the next step to verification', async () => {
   const now = new Date('2026-07-11T15:00:00.000Z');
   const agent = cleanAgent(now);

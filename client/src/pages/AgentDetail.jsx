@@ -41,7 +41,7 @@ export default function AgentDetail() {
   // Force simulation to stop when navigating to this page so it starts frozen
   // and only updates when explicitly clicking "Next" or "Eid Rush".
   useEffect(() => {
-    api.simStop().catch(console.error);
+    api.simStop().catch(() => {});
   }, []);
 
 

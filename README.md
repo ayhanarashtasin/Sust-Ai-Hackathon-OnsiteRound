@@ -26,6 +26,23 @@ Total balance can look healthy while one provider's e-money is minutes from zero
 
 ---
 
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| **Frontend** | React 18.3.1, React Router DOM 6.24, Vite 5.3.3 |
+| **Real-time** | Socket.io 4.8.3 (client + server) |
+| **Backend** | Node.js ≥ 18, Express 4.19.2 |
+| **Database** | MongoDB (Mongoose 8.5.1) — local or Atlas |
+| **Auth** | JWT (jsonwebtoken 9.0.2) + bcryptjs 2.4.3 |
+| **ML inference** | ONNX Runtime Node 1.27.0 (pre-trained LightGBM/XGBoost) |
+| **ML training** | Python 3.11, LightGBM 4.3, XGBoost 2.0, scikit-learn 1.4, ONNX 1.16 |
+| **NL generation** | OpenAI gpt-4o-mini (4 s timeout, JSON mode) + deterministic fallback templates |
+| **CI** | GitHub Actions + SonarCloud |
+| **i18n** | English / Bengali / Banglish (trilingual, persists across page loads) |
+
+---
+
 ## Quick Start
 
 **Prerequisites:** Node ≥ 18, MongoDB (local `mongod` or Atlas URI).
@@ -46,13 +63,43 @@ npm run dev                 # UI on :5173 (Vite proxies /api → :5000)
 
 ### Environment variables
 
-| Variable | Required | Purpose |
-|----------|----------|---------|
-| `MONGO_URI` | Yes | MongoDB connection string |
-| `JWT_SECRET` | Yes | Signing key for staff JWTs (any long random string) |
-| `OPENAI_API_KEY` | No | GPT-4o-mini alert prose; falls back to templates if absent |
-| `SEED` | No | PRNG seed for `npm run seed` (default `20260711`) |
-| `PORT` | No | API port (default `5000`) |
+**Required:**
+
+| Variable | Purpose |
+|----------|---------|
+| `MONGO_URI` | MongoDB connection string (local or Atlas) |
+| `JWT_SECRET` | Signing key for staff JWTs (any long random string) |
+
+**Optional — features:**
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `OPENAI_API_KEY` | — | GPT-4o-mini alert prose; falls back to templates if absent |
+| `SEED` | `20260711` | PRNG seed for `npm run seed` |
+| `PORT` | `5000` | API port |
+| `CLIENT_ORIGIN` | `http://localhost:5173` | CORS allowed origins |
+| `MONGO_DB_NAME` | `superagent` | Database name |
+| `MONGODB_DNS_SERVERS` | — | Fallback DNS for Atlas DNS failures |
+
+**Optional — ML & decision engine:**
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `ML_ENABLED` | `true` | Enable ONNX model inference |
+| `MODEL_TYPE` | `lightgbm` | `lightgbm` \| `xgboost` |
+| `MODEL_DIR` | `../ml/artifacts` | Directory containing ONNX model artifacts |
+| `FEATURE_WINDOWS_MINUTES` | `5,15,30,60` | Rolling window sizes for feature extraction |
+| `DATA_FRESHNESS_MINUTES` | `10` | Max age before `stale_feed` flag |
+| `LIQUIDITY_MODEL_THRESHOLD` | `0.65` | Model probability threshold (liquidity shortage) |
+| `ANOMALY_MODEL_THRESHOLD` | `0.70` | Model probability threshold (unusual activity) |
+| `MEDIUM_RISK_THRESHOLD` | `0.45` | Risk score band boundary |
+| `HIGH_RISK_THRESHOLD` | `0.70` | Risk score band boundary |
+| `CRITICAL_RISK_THRESHOLD` | `0.90` | Risk score band boundary |
+| `CASH_BURN_RATE_THRESHOLD` | `500` | BDT/min hard-safety rule trigger |
+| `VELOCITY_RATIO_THRESHOLD` | `2.5` | Multiplier for anomaly rule |
+| `REPEATED_AMOUNT_COUNT` | `5` | Minimum cluster size for repeated-amount flag |
+| `SMALL_ACCOUNT_COUNT` | `3` | Max distinct accounts for concentration check |
+| `HIGH_VALUE_AMOUNT` | `10000` | Transaction amount for high-value classification |
 
 ### Demo staff accounts
 
@@ -91,9 +138,10 @@ Open AGT-001 after seeding. Select a scenario and press **Eid rush** (continuous
 │  Login → Dashboard → AgentDetail → CaseView                                 │
 │                                                                              │
 │  Polls every 3 s (alerts, forecast, decision)  /  5 s (agents, model status)│
+│  Socket.io for push-based live updates                                       │
 │  Client is READ-ONLY in the request path — no alert writes, no OpenAI calls │
 └────────────────────────────┬─────────────────────────────────────────────────┘
-                             │ REST + JWT
+                             │ REST + JWT  /  Socket.io
 ┌────────────────────────────▼─────────────────────────────────────────────────┐
 │                        Express API (:5000)                                   │
 │                                                                              │
@@ -188,6 +236,7 @@ Open AGT-001 after seeding. Select a scenario and press **Eid rush** (continuous
 | Language guard | Runtime `assertSafeLanguage()` wraps both OpenAI and template output | OpenAI is non-deterministic; the prompt alone is not enforcement |
 | Safe fallback | Any data issue → `recommendationSuppressed = true`, `suggestedTopUp = 0` | Bad data must lower claims, never raise them |
 | Provider isolation | `visibilityScope()` in alertController enforces role + area + providerScope on every DB query | Provider boundaries are enforced server-side, not just displayed |
+| Hybrid ML + rules | ONNX model probability combined with deterministic rule engine | Rules enforce hard safety; model catches softer patterns; neither alone is sufficient |
 
 ---
 
@@ -242,7 +291,7 @@ Shared cash inherits the union of all provider issues (its flow mixes every prov
 
 ### 4. Hybrid Decision (`services/ml/hybridDecision.js`)
 
-Combines a trained tabular ML model with the rule engine output:
+Combines a trained tabular ML model (LightGBM or XGBoost, loaded as ONNX) with the rule engine output:
 
 | Mode | Meaning |
 |------|---------|
@@ -252,7 +301,7 @@ Combines a trained tabular ML model with the rule engine output:
 | `rule_only` | Rule triggered; model below threshold or unavailable |
 | `none` | Neither triggered |
 
-Output per provider: `riskScore` (0–1), `riskBand` (low/medium/high/critical), `confidenceScore`, `dataConfidence`, `decisionSource`, `fallbackReason`.
+Two models are loaded at startup: `liquidity_shortage_60m` and `unusual_activity_review`. Output per provider: `riskScore` (0–1), `riskBand` (low/medium/high/critical), `confidenceScore`, `dataConfidence`, `decisionSource`, `fallbackReason`.
 
 ### 5. Explanation Layer (`services/explain.js`)
 
@@ -312,6 +361,7 @@ npm test                     # all unit tests (Node built-in test runner)
 npm run validate             # 5 seeded in-memory metrics (no DB needed)
 npm run validate -- --report # also writes validation-report.md to project root
 npm run latency              # HTTP p50/p95/p99 against a running server
+npm run test:coverage        # code coverage report (c8 → LCOV)
 npm run sample-data          # regenerate portable dataset in data/sample/
 ```
 
@@ -348,6 +398,53 @@ Labels come from **behavioral scenarios** — what a simulated actor does — no
 | 5 | Engine latency — forecast + anomaly in-memory | p95 < 4 ms | p95 < 300 ms |
 
 `npm run latency` measures end-to-end HTTP latency (p50/p95/p99) against a running server with MongoDB.
+
+---
+
+## ML Model Training
+
+The ONNX model artifacts in `ml/artifacts/` are pre-built. To retrain:
+
+```bash
+# Generate training features from scenario tests
+cd server
+npm run ml:dataset           # writes data/ml/features.csv + data/ml/labels.csv
+
+# Train with Python (Docker or local venv)
+cd ml
+python train.py \
+  --features ../data/ml/features.csv \
+  --labels   ../data/ml/labels.csv \
+  --out      ./artifacts \
+  --model-type lightgbm      # or xgboost
+
+# Or use the Docker container (no local Python required)
+docker build -t superagent-ml .
+docker run --rm \
+  -v "$(pwd)/../data/ml:/data" \
+  -v "$(pwd)/artifacts:/out" \
+  superagent-ml python train.py \
+    --features /data/features.csv \
+    --labels   /data/labels.csv \
+    --out      /out
+```
+
+Training outputs an ONNX binary + manifest JSON to `ml/artifacts/`. The Node server loads them at startup via `modelRuntime.js` and falls back gracefully if the files are absent.
+
+**Python dependencies** (`ml/requirements.txt`): `lightgbm==4.3`, `xgboost==2.0`, `scikit-learn==1.4`, `onnx==1.16`, `onnxmltools==1.12`, `skl2onnx==1.16`, `numpy==1.26`, `pandas==2.1`, `pytest==8`.
+
+---
+
+## CI/CD
+
+GitHub Actions runs on every push to `main` and every PR sync (`.github/workflows/sonarcloud.yml`):
+
+1. Install server and client dependencies
+2. Run `npm run test:coverage` (Node built-in test runner + c8 LCOV report)
+3. Build client (`npm run build`)
+4. Upload coverage to SonarCloud for static analysis
+
+**Required repository secrets:** `SONAR_TOKEN`.
 
 ---
 
@@ -438,7 +535,7 @@ Runs a tick every 2 seconds. Each tick generates scenario-specific transactions,
 |------|---------|
 | `server/server.js` | Express app entry point |
 | `server/config/db.js` | MongoDB connection with fail-fast on Atlas DNS |
-| `server/config/decisionConfig.js` | ML thresholds, risk bands, staleness window |
+| `server/config/decisionConfig.js` | ML thresholds, risk bands, staleness window (reads env vars) |
 | `server/middleware/auth.js` | JWT verify — attaches role, area, providerScope to req.user |
 | `server/models/Agent.js` | Agent outlet schema (1 cash drawer + per-provider e-money) |
 | `server/models/Alert.js` | Alert schema with case lifecycle, history[], evidenceHistory[] |
@@ -448,9 +545,9 @@ Runs a tick every 2 seconds. Each tick generates scenario-specific transactions,
 | `server/controllers/alertController.js` | Case lifecycle — visibilityScope() on every read + write |
 | `server/controllers/authController.js` | Staff login + in-memory throttle |
 | `server/controllers/agentController.js` | Agent reads + stale-provider annotation |
-| `server/controllers/decisionController.js` | /agents/:id/decision-support endpoint |
+| `server/controllers/decisionController.js` | GET /agents/:id/decision-support |
 | `server/controllers/simController.js` | Sim control with role-scoped access |
-| `server/controllers/modelController.js` | /model/status endpoint |
+| `server/controllers/modelController.js` | GET /model/status |
 | `server/services/simEngine.js` | Compute-on-write sim tick (scenarios A/B/C/D) |
 | `server/services/forecast.js` | Burn-rate liquidity forecast (per resource) |
 | `server/services/anomaly.js` | Velocity spike + repeated-amount detectors |
@@ -462,7 +559,7 @@ Runs a tick every 2 seconds. Each tick generates scenario-specific transactions,
 | `server/services/ml/decisionSupport.js` | Full analytics pipeline per provider |
 | `server/services/ml/hybridDecision.js` | Model + rules combiner → riskScore, riskBand, mode |
 | `server/services/ml/featurePipeline.js` | Feature vector builder with schema versioning |
-| `server/services/ml/modelRuntime.js` | Tabular model loader + predict (graceful fallback) |
+| `server/services/ml/modelRuntime.js` | ONNX model loader + predict (graceful fallback) |
 | `server/services/ml/evidenceMapper.js` | Readable evidence + data-freshness map |
 | `server/services/rules/ruleEngine.js` | Rule evaluation harness |
 | `server/services/rules/ruleDefinitions.js` | Hard-safety and anomaly rule definitions |
@@ -482,7 +579,7 @@ Runs a tick every 2 seconds. Each tick generates scenario-specific transactions,
 | `client/src/components/BalanceHero.jsx` | One cash drawer + three separate provider bars |
 | `client/src/components/ForecastPanel.jsx` | Per-resource depletion ETA + confidence meter |
 | `client/src/components/AlertsFeed.jsx` | Alert list with severity, kind, and quick-dismiss |
-| `client/src/components/AlertExplanation.jsx` | Expandable evidence rows + decision mode + language |
+| `client/src/components/AlertExplanation.jsx` | Expandable evidence rows + decision mode + language toggle |
 | `client/src/components/CaseTimeline.jsx` | Audit history timeline |
 | `client/src/components/ConfidenceMeter.jsx` | 0–1 visual confidence indicator |
 | `client/src/components/RiskConfidence.jsx` | Risk score + confidence band display |
@@ -495,6 +592,17 @@ Runs a tick every 2 seconds. Each tick generates scenario-specific transactions,
 | `client/src/i18n/en.js` | English string table |
 | `client/src/i18n/bn.js` | Bengali string table |
 | `client/src/i18n/banglish.js` | Banglish string table |
+
+### ML
+
+| Path | Purpose |
+|------|---------|
+| `ml/train.py` | LightGBM/XGBoost training → ONNX export |
+| `ml/Dockerfile` | Python 3.11-slim container for reproducible training |
+| `ml/requirements.txt` | Python dependencies |
+| `ml/artifacts/` | Pre-built ONNX model + manifest (loaded at server startup) |
+| `data/ml/` | Generated feature/label CSVs for training |
+| `data/sample/` | Portable synthetic transaction dataset |
 
 ---
 
